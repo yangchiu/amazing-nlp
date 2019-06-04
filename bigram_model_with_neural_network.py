@@ -38,6 +38,7 @@ if __name__ == '__main__':
             inputs = np.zeros((n-1, n_vocab))
             targets = np.zeros((n-1, n_vocab))
 
+            # one hot encoding
             inputs[np.arange(n-1), sent[:n-1]] = 1
             targets[np.arange(n-1), sent[1:]] = 1
 

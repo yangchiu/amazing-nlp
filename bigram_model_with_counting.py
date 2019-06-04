@@ -1,7 +1,8 @@
 import numpy as np
-from brown_corpus import get_sentences_with_word2idx_limit_vocab, get_sentences_with_word2idx
+from brown_corpus import get_sentences_with_word2idx_limit_vocab, get_idx2word, get_words_from_idx
 
 def get_bigram_probs(sentences, n_vocab, start_token_idx, end_token_idx, smoothing=1):
+    print(f'* calling {get_bigram_probs.__name__}')
 
     # add-one smoothing
     # consider p(dog|the quick brown fox jumps over the)
@@ -27,6 +28,9 @@ def get_bigram_probs(sentences, n_vocab, start_token_idx, end_token_idx, smoothi
                 bigram_probs[sent[i-1], sent[i]] += 1
 
     bigram_probs /= bigram_probs.sum(axis=1, keepdims=True)
+
+    print(f'=> get bigram probs with shape {bigram_probs.shape}')
+
     return bigram_probs
 
 
@@ -36,8 +40,11 @@ if __name__ == '__main__':
     # and the out-of-vocabulary words have been converted to 'UNKNOWN' token
     indexed_sents, word2idx = get_sentences_with_word2idx_limit_vocab(10000)
 
+    # get original sentence from indexed sentence
+    idx2word = get_idx2word(word2idx)
+
     n_vocab = len(word2idx)
-    print(f'Vocab size: {n_vocab}')
+    print(f'=> build bigram model based on vocab size: {n_vocab}')
 
     start_token_idx = word2idx['START']
     end_token_idx = word2idx['END']
@@ -61,13 +68,7 @@ if __name__ == '__main__':
         score += np.log(bigram_probs[sent[-1], end_token_idx])
 
         # normalize the log score
-        return score / (len(sent) + 1)
-
-    # to get original sentence from indexed sentence
-    idx2word = dict((v, k) for k, v in word2idx.items())
-
-    def get_words_from_idx(sent):
-        return ' '.join(idx2word[i] for i in sent)
+        return round(score / (len(sent) + 1), 2)
 
     # generate an uniform distribution fake bigram_probs
     # to sample a fake sentence
@@ -86,8 +87,10 @@ if __name__ == '__main__':
         fake_sent = np.random.choice(n_vocab, size=len(real_sent), p=fake_bigram_probs)
 
         # the score of real sentence would always higher than the score of fake sentence
-        print(f'Real sentence: {get_words_from_idx(real_sent)} => Score: {get_log_score(real_sent)}')
-        print(f'Fake sentence: {get_words_from_idx(fake_sent)} => Score: {get_log_score(fake_sent)}')
+        print(f'[Real sentence]')
+        print(f'{" ".join(get_words_from_idx(real_sent, idx2word))} => Score: {get_log_score(real_sent)}')
+        print(f'[Fake sentence]')
+        print(f'{" ".join(get_words_from_idx(fake_sent, idx2word))} => Score: {get_log_score(fake_sent)}')
 
         cont = input("Continue? [Y/n]")
         if cont and cont.lower() in ('N', 'n'):
