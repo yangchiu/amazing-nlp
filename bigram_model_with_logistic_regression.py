@@ -34,7 +34,9 @@ if __name__ == '__main__':
         random.shuffle(indexed_sents)
 
         j = 0
-        for sent in indexed_sents:
+        # training W[N x N] is too slow
+        # train a small dataset only
+        for sent in indexed_sents[:250]:
 
             sent = [start_token_idx] + sent + [end_token_idx]
 
@@ -62,16 +64,16 @@ if __name__ == '__main__':
 
             j += 1
 
-    def get_log_score(sent):
+    def get_score(sent):
         score = 0
         for i in range(len(sent)):
             # get prob of start token -> the 1st word
             if i == 0:
-                score += np.log(W[start_token_idx, sent[i]])
+                score += W[start_token_idx, sent[i]]
             else:
-                score += np.log(W[sent[i - 1], sent[i]])
+                score += W[sent[i - 1], sent[i]]
         # get prob of the last word -> end token
-        score += np.log(W[sent[-1], end_token_idx])
+        score += W[sent[-1], end_token_idx]
 
         # normalize the log score
         return round(score / (len(sent) + 1), 2)
@@ -94,9 +96,9 @@ if __name__ == '__main__':
 
         # the score of real sentence would always higher than the score of fake sentence
         print(f'[Real sentence]')
-        print(f'{" ".join(get_words_from_idx(real_sent, idx2word))} => Score: {get_log_score(real_sent)}')
+        print(f'{" ".join(get_words_from_idx(real_sent, idx2word))} => Score: {get_score(real_sent)}')
         print(f'[Fake sentence]')
-        print(f'{" ".join(get_words_from_idx(fake_sent, idx2word))} => Score: {get_log_score(fake_sent)}')
+        print(f'{" ".join(get_words_from_idx(fake_sent, idx2word))} => Score: {get_score(fake_sent)}')
 
         cont = input("Continue? [Y/n]")
         if cont and cont.lower() in ('N', 'n'):
