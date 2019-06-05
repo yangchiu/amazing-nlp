@@ -1,59 +1,21 @@
 import numpy as np
 from datetime import datetime
 from scipy.special import expit as sigmoid
+from sklearn.metrics.pairwise import pairwise_distances
+from scipy.spatial.distance import cosine as cos_dist
 
-from brown_corpus import get_sentences_with_word2idx_limit_vocab, get_sentences_with_word2idx
-
-from glob import glob
-
-import os
-import sys
-import string
-
-def remove_punctuation(s):
-    return s.translate(str.maketrans('','',string.punctuation))
-
-def get_wiki():
-  V = 20000
-  files = glob('../data/enwiki-xml.txt')
-  all_word_counts = {}
-  for f in files:
-    for line in open(f, encoding="utf-8"):
-      if line and line[0] not in '[*-|=\{\}':
-        s = remove_punctuation(line).lower().split()
-        if len(s) > 1:
-          for word in s:
-            if word not in all_word_counts:
-              all_word_counts[word] = 0
-            all_word_counts[word] += 1
-  print("finished counting")
-
-  V = min(V, len(all_word_counts))
-  all_word_counts = sorted(all_word_counts.items(), key=lambda x: x[1], reverse=True)
-
-  top_words = [w for w, count in all_word_counts[:V-1]] + ['<UNK>']
-  word2idx = {w:i for i, w in enumerate(top_words)}
-  unk = word2idx['<UNK>']
-
-  sents = []
-  for f in files:
-    for line in open(f, encoding="utf-8"):
-      if line and line[0] not in '[*-|=\{\}':
-        s = remove_punctuation(line).lower().split()
-        if len(s) > 1:
-          # if a word is not nearby another word, there won't be any context!
-          # and hence nothing to train!
-          sent = [word2idx[w] if w in word2idx else unk for w in s]
-          sents.append(sent)
-  return sents, word2idx
+from brown_corpus import get_sentences_with_word2idx_limit_vocab, get_idx2word, get_words_from_idx
 
 def train_model(savedir):
+    print(f'* calling {train_model.__name__}')
+
     # get word2idx data
-    indexed_sents, word2idx = get_wiki()
+    indexed_sents, word2idx = get_sentences_with_word2idx_limit_vocab()
+    idx2word = get_idx2word(word2idx)
 
     # number of unique words
     vocab_size = len(word2idx)
-    print(f'Vocab size: {vocab_size}')
+    print(f'=> build word2vec with vocab size: {vocab_size}')
 
     # config
     window_size = 5
@@ -63,12 +25,17 @@ def train_model(savedir):
     epochs = 20
     D = 50 # word embedding size
 
+    print(f'=> word2vec dimension is {D}')
+
     # learning rate decay
     learning_rate_delta = (learning_rate - final_learning_rate) / epochs
 
     # weight matrix
     W = np.random.randn(vocab_size, D) # input-to-hidden
     V = np.random.randn(D, vocab_size) # hidden-to-output
+
+    print(f'=> W is {W.shape}')
+    print(f'=> V is {V.shape}')
 
     # distribution for drawing negative samples
     p_neg = get_negative_sampling_distribution(indexed_sents, vocab_size)
@@ -77,8 +44,8 @@ def train_model(savedir):
     costs = []
 
     # number of total words in corpus
-    total_words = sum(len(sent) for sent in indexed_sents)
-    print(f'total number of words in corpus: {total_words}')
+    #total_words = sum(len(sent) for sent in indexed_sents)
+    #print(f'=> total number of words in corpus: {total_words}')
 
     # common words are very common and uncommon words are very uncommon
     # that means we'd spend a majority of the time updating word of vectors for very common words
@@ -92,48 +59,51 @@ def train_model(savedir):
         np.random.shuffle(indexed_sents)
 
         cost = 0
-        counter = 0
         t0 = datetime.now()
-        for sent in indexed_sents:
+        for i, sent in enumerate(indexed_sents):
+            # drop words from this sentence
             # drop words based on p_neg
             sent = [w for w in sent if np.random.random() < (1 - p_drop[w])]
-            if len(sent) < 2:
+            if len(sent) < 5:
                 continue
 
-        print(f'sent len: {len(sent)}')
+            print(f'=> sentence before drop: {get_words_from_idx(indexed_sents[i], idx2word)}')
+            print(f'=> sentence after drop: {get_words_from_idx(sent, idx2word)}')
 
-        randomly_ordered_positions = np.random.choice(
-            len(sent),
-            size=len(sent),
-            replace=False
-        )
-        print(f'random positions: {randomly_ordered_positions}')
+            print(f'=> sentence length: {len(sent)}')
 
-        for pos in randomly_ordered_positions:
-            # the middle word
-            word = sent[pos]
-            print(f'word: {word}')
+            # randomize positions for this sentence
+            randomly_ordered_positions = np.random.choice(
+                len(sent),
+                size=len(sent),
+                replace=False
+            )
+            print(f'=> randomized sentence positions: {randomly_ordered_positions}')
 
-            context_words = get_context(pos, sent, window_size)
-            if len(context_words) < 1:
-                continue
+            # train on this sentence
+            for pos in randomly_ordered_positions:
+                # the middle word
+                word = sent[pos]
+                print(f'=> select word "{get_words_from_idx([word], idx2word)}"')
 
-            # usually negative sampling is sampling negative context words
-            # with a fixed middle word
-            # but during implementation we fix the context words
-            # and insert an incorrect middle word
-            neg_word = np.random.choice(vocab_size, p=p_neg)
-            print(f'neg_word: {neg_word}')
+                context_words = get_context(pos, sent, window_size)
+                print(f'=> get context {get_words_from_idx(context_words, idx2word)}')
 
-            targets = np.array(context_words)
-            c = sgd(word, targets, 1, learning_rate, W, V)
-            cost += c
-            c = sgd(neg_word, targets, 0, learning_rate, W, V)
-            cost += c
+                # usually negative sampling is sampling negative context words
+                # with a fixed middle word
+                # but during implementation we fix the context words
+                # and insert an incorrect middle word
+                neg_word = np.random.choice(vocab_size, p=p_neg)
+                print(f'=> get neg_word: {get_words_from_idx([neg_word], idx2word)}')
 
-        counter += 1
-        if counter % 10 == 0:
-            print(f'processed {counter} / {len(indexed_sents)}')
+                targets = np.array(context_words)
+                c = sgd(word, targets, 1, learning_rate, W, V)
+                cost += c
+                c = sgd(neg_word, targets, 0, learning_rate, W, V)
+                cost += c
+
+            if i % 10 == 0:
+                print(f'********************** processed {i} / {len(indexed_sents)} **********************')
 
         dt = datetime.now() - t0
         print(f'epoch complete: {epoch}, cost: {cost}, dt: {dt}')
@@ -144,13 +114,10 @@ def train_model(savedir):
 
     return word2idx, W, V
 
+
 def sgd(input, targets, label, learning_rate, W, V):
-    print(f'input shape:')
-    print(input)
-    print(f'targets shape: {targets.shape}')
-    print(targets)
-    print(f'W shape: {W.shape}')
-    print(f'V shape: {V.shape}')
+    #print(f'* calling {sgd.__name__}')
+
     # W[input] shape: D
     # V[:,targets] shape: D x N
     # activation shape: N
@@ -166,7 +133,10 @@ def sgd(input, targets, label, learning_rate, W, V):
     cost = label * np.log(prob + 1e-10) + (1 - label) * np.log(1 - prob + 1e-10)
     return cost.sum()
 
+
 def get_context(pos, sentence, window_size):
+    print(f'* calling {get_context.__name__}')
+
     # input:
     # a sentence of the form: x x x x c c c pos c c c x x x x
     # output:
@@ -181,7 +151,10 @@ def get_context(pos, sentence, window_size):
             context.append(ctx_word_idx)
     return context
 
+
 def get_negative_sampling_distribution(indexed_sents, vocab_size):
+    print(f'* calling {get_negative_sampling_distribution.__name__}')
+
     # Pn(w) = prob of word occuring
     # we would like to sample the negative samples
     # such that words that occur more often should be sampled more often
@@ -189,7 +162,7 @@ def get_negative_sampling_distribution(indexed_sents, vocab_size):
     # prevent divided by 0
     word_freq = np.ones(vocab_size)
     word_count = sum(len(sent) for sent in indexed_sents)
-    print(f'word count for neg sampling distribution: {word_count}')
+    print(f'=> word count for neg sampling distribution: {word_count}')
     for sent in indexed_sents:
         for word in sent:
             word_freq[word] += 1
@@ -203,9 +176,87 @@ def get_negative_sampling_distribution(indexed_sents, vocab_size):
     # normalization
     p_neg = p_neg / p_neg.sum()
 
-    print(f'p_neg shape: {p_neg.shape}')
-    print(p_neg)
+    print(f'=> p_neg shape {p_neg.shape}')
+    print(f'=> p_neg: {p_neg}')
     return p_neg
+
+
+def analogy(pos1, neg1, pos2, neg2, word2idx, idx2word, W):
+    V, D = W.shape
+
+    # don't actually use pos2 in calculation, just print what's expected
+    print("testing: %s - %s = %s - %s" % (pos1, neg1, pos2, neg2))
+    for w in (pos1, neg1, pos2, neg2):
+        if w not in word2idx:
+            print("Sorry, %s not in word2idx" % w)
+            return
+
+    p1 = W[word2idx[pos1]]
+    n1 = W[word2idx[neg1]]
+    p2 = W[word2idx[pos2]]
+    n2 = W[word2idx[neg2]]
+
+    vec = p1 - n1 + n2
+
+    distances = pairwise_distances(vec.reshape(1, D), W, metric='cosine').reshape(V)
+    idx = distances.argsort()[:10]
+
+    # pick one that's not p1, n1, or n2
+    best_idx = -1
+    keep_out = [word2idx[w] for w in (pos1, neg1, neg2)]
+    # print("keep_out:", keep_out)
+    for i in idx:
+        if i not in keep_out:
+            best_idx = i
+            break
+    # print("best_idx:", best_idx)
+
+    print("got: %s - %s = %s - %s" % (pos1, neg1, idx2word[best_idx], neg2))
+    print("closest 10:")
+    for i in idx:
+        print(idx2word[i], distances[i])
+
+    print("dist to %s:" % pos2, cos_dist(p2, vec))
+
+
+def test_model(word2idx, W, V):
+    # there are multiple ways to get the "final" word embedding
+    # We = (W + V.T) / 2
+    # We = W
+
+    idx2word = {i:w for w, i in word2idx.items()}
+
+    for We in (W, (W + V.T) / 2):
+        print("**********")
+
+        analogy('king', 'man', 'queen', 'woman', word2idx, idx2word, We)
+        analogy('king', 'prince', 'queen', 'princess', word2idx, idx2word, We)
+        analogy('miami', 'florida', 'dallas', 'texas', word2idx, idx2word, We)
+        analogy('einstein', 'scientist', 'picasso', 'painter', word2idx, idx2word, We)
+        analogy('japan', 'sushi', 'germany', 'bratwurst', word2idx, idx2word, We)
+        analogy('man', 'woman', 'he', 'she', word2idx, idx2word, We)
+        analogy('man', 'woman', 'uncle', 'aunt', word2idx, idx2word, We)
+        analogy('man', 'woman', 'brother', 'sister', word2idx, idx2word, We)
+        analogy('man', 'woman', 'husband', 'wife', word2idx, idx2word, We)
+        analogy('man', 'woman', 'actor', 'actress', word2idx, idx2word, We)
+        analogy('man', 'woman', 'father', 'mother', word2idx, idx2word, We)
+        analogy('heir', 'heiress', 'prince', 'princess', word2idx, idx2word, We)
+        analogy('nephew', 'niece', 'uncle', 'aunt', word2idx, idx2word, We)
+        analogy('france', 'paris', 'japan', 'tokyo', word2idx, idx2word, We)
+        analogy('france', 'paris', 'china', 'beijing', word2idx, idx2word, We)
+        analogy('february', 'january', 'december', 'november', word2idx, idx2word, We)
+        analogy('france', 'paris', 'germany', 'berlin', word2idx, idx2word, We)
+        analogy('week', 'day', 'year', 'month', word2idx, idx2word, We)
+        analogy('week', 'day', 'hour', 'minute', word2idx, idx2word, We)
+        analogy('france', 'paris', 'italy', 'rome', word2idx, idx2word, We)
+        analogy('paris', 'france', 'rome', 'italy', word2idx, idx2word, We)
+        analogy('france', 'french', 'england', 'english', word2idx, idx2word, We)
+        analogy('japan', 'japanese', 'china', 'chinese', word2idx, idx2word, We)
+        analogy('china', 'chinese', 'america', 'american', word2idx, idx2word, We)
+        analogy('japan', 'japanese', 'italy', 'italian', word2idx, idx2word, We)
+        analogy('japan', 'japanese', 'australia', 'australian', word2idx, idx2word, We)
+        analogy('walk', 'walking', 'swim', 'swimming', word2idx, idx2word, We)
 
 if __name__ == '__main__':
     word2idx, W, V = train_model('w2v_model')
+    test_model(word2idx, W, V)
