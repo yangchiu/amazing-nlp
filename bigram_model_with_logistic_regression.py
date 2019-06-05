@@ -64,6 +64,8 @@ if __name__ == '__main__':
 
             j += 1
 
+    # the code below is for testing the performance of the trained bigram model
+
     def get_score(sent):
         score = 0
         for i in range(len(sent)):
