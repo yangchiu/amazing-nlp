@@ -1,5 +1,6 @@
 from nltk.corpus import brown
 import operator
+import re
 
 import nltk
 nltk.download('brown')
@@ -14,10 +15,19 @@ KEEP_WORDS = set([
 def get_sentences():
     print(f'* calling {get_sentences.__name__}')
 
-    res = brown.sents()
-    print(f'=> get {len(res)} sentences')
+    # only keep words, remove punctuations
+    regexp = re.compile(r'\w')
 
-    return res
+    sents = brown.sents()
+
+    new_sents = []
+    for sent in sents:
+        for j, word in reversed(list(enumerate(sent))):
+            if not regexp.search(word):
+                del sent[j]
+        new_sents.append(sent)
+
+    return new_sents
 
 
 def get_sentences_with_word2idx():
