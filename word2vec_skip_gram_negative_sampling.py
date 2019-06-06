@@ -52,8 +52,14 @@ def train_model(savedir):
     # so each time we encounter a sentence we randomly drop some words according to some probability distribution
     # if p(w) = 1e-5, then p_drop(w) = 1 - 1 = 0
     # if p(w) = 0.1, then p_drop(w) = 1 - 1e-2 = 0.99
-    threshold = 1e-5
-    p_drop = 1 - np.sqrt(threshold / p_neg)
+    #threshold = 1e-5
+    #p_drop = 1 - np.sqrt(threshold / p_neg)
+    # the original p_drop drops too much
+    p_drop = np.sqrt(np.sqrt(p_neg))
+    print(f'=> p_drop shape {p_drop.shape}')
+    print(f'=> p_drop: {p_drop}')
+    print(f'=> p_drop max: {p_drop.max()}')
+    print(f'=> p_drop min: {p_drop.min()}')
 
     for epoch in range(epochs):
         np.random.shuffle(indexed_sents)
@@ -178,6 +184,8 @@ def get_negative_sampling_distribution(indexed_sents, vocab_size):
 
     print(f'=> p_neg shape {p_neg.shape}')
     print(f'=> p_neg: {p_neg}')
+    print(f'=> p_neg max: {p_neg.max()}')
+    print(f'=> p_neg min: {p_neg.min()}')
     return p_neg
 
 
@@ -259,4 +267,4 @@ def test_model(word2idx, W, V):
 
 if __name__ == '__main__':
     word2idx, W, V = train_model('w2v_model')
-    test_model(word2idx, W, V)
+    #test_model(word2idx, W, V)
