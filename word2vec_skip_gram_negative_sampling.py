@@ -1,4 +1,7 @@
 import numpy as np
+import os
+import json
+from pathlib import Path
 from datetime import datetime
 from scipy.special import expit as sigmoid
 from sklearn.metrics.pairwise import pairwise_distances
@@ -6,7 +9,9 @@ from scipy.spatial.distance import cosine as cos_dist
 
 from brown_corpus import get_sentences_with_word2idx_limit_vocab, get_idx2word, get_words_from_idx
 
-def train_model(savedir):
+savedir = 'model'
+
+def train_model():
     print(f'* calling {train_model.__name__}')
 
     # get word2idx data
@@ -118,6 +123,15 @@ def train_model(savedir):
 
         learning_rate -= learning_rate_delta
 
+    # save the model
+    if not os.path.exists(savedir):
+        os.mkdir(savedir)
+
+    with open(f'{savedir}/word2idx.json', 'w') as f:
+        json.dump(word2idx, f)
+
+    np.savez(f'{savedir}/weights.npz', W, V)
+
     return word2idx, W, V
 
 
@@ -188,6 +202,14 @@ def get_negative_sampling_distribution(indexed_sents, vocab_size):
     print(f'=> p_neg min: {p_neg.min()}')
     return p_neg
 
+
+def load_model():
+    with open(f'{savedir}/word2idx.json') as f:
+        word2idx = json.load(f)
+    npz = np.load(f'{savedir}/weights.npz')
+    W = npz['arr_0']
+    V = npz['arr_1']
+    return word2idx, W, V
 
 def analogy(pos1, neg1, pos2, neg2, word2idx, idx2word, W):
     V, D = W.shape
@@ -266,5 +288,8 @@ def test_model(word2idx, W, V):
         analogy('walk', 'walking', 'swim', 'swimming', word2idx, idx2word, We)
 
 if __name__ == '__main__':
-    word2idx, W, V = train_model('w2v_model')
-    #test_model(word2idx, W, V)
+    if Path(f'{savedir}/word2idx.json').is_file() and Path(f'{savedir}/weights.npz').is_file():
+        word2idx, W, V = load_model()
+    else:
+        word2idx, W, V = train_model()
+    test_model(word2idx, W, V)
