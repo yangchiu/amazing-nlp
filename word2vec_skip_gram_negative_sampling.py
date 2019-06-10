@@ -15,7 +15,7 @@ def train_model():
     print(f'* calling {train_model.__name__}')
 
     # get word2idx data
-    indexed_sents, word2idx = get_sentences_with_word2idx_limit_vocab()
+    indexed_sents, word2idx = get_sentences_with_word2idx_limit_vocab(20000)
     idx2word = get_idx2word(word2idx)
 
     # number of unique words
