@@ -9,7 +9,7 @@ from scipy.spatial.distance import cosine as cos_dist
 
 from brown_corpus import get_sentences_with_word2idx_limit_vocab, get_idx2word, get_words_from_idx
 
-savedir = 'model'
+savedir = 'trained_models/word2vec_skip_gram_negative_sampling'
 
 def train_model():
     print(f'* calling {train_model.__name__}')
@@ -44,6 +44,15 @@ def train_model():
 
     # distribution for drawing negative samples
     p_neg = get_negative_sampling_distribution(indexed_sents, vocab_size)
+    print(f'=> p_neg shape {p_neg.shape}')
+    print(f'=> p_neg: {p_neg}')
+    print(f'=> p_neg max: {p_neg.max()}')
+    print(f'=> p_neg min: {p_neg.min()}')
+    print(f'=> p_neg for [the] = {p_neg[word2idx["the"]]}')
+    print(f'=> p_neg for [a] = {p_neg[word2idx["a"]]}')
+    print(f'=> p_neg for [this] = {p_neg[word2idx["this"]]}')
+    print(f'=> p_neg for [animal] = {p_neg[word2idx["animal"]]}')
+    print(f'=> p_neg for [scale] = {p_neg[word2idx["scale"]]}')
 
     # save the costs
     costs = []
@@ -55,16 +64,21 @@ def train_model():
     # common words are very common and uncommon words are very uncommon
     # that means we'd spend a majority of the time updating word of vectors for very common words
     # so each time we encounter a sentence we randomly drop some words according to some probability distribution
-    # if p(w) = 1e-5, then p_drop(w) = 1 - 1 = 0
-    # if p(w) = 0.1, then p_drop(w) = 1 - 1e-2 = 0.99
-    #threshold = 1e-5
-    #p_drop = 1 - np.sqrt(threshold / p_neg)
-    # the original p_drop drops too much
-    p_drop = np.sqrt(np.sqrt(p_neg))
+    # if threshold = 1e-5 and p(w) = 1e-5, then p_drop(w) = 1 - 1 = 0
+    # if threshold = 1e-5 and p(w) = 0.1, then p_drop(w) = 1 - 1e-2 = 0.99
+    # *** Adjust this value according to p_neg ***
+    # *** Until common words can be dropped by a relative larger pos ***
+    threshold = 7e-5
+    p_drop = 1 - np.sqrt(threshold / p_neg)
     print(f'=> p_drop shape {p_drop.shape}')
     print(f'=> p_drop: {p_drop}')
     print(f'=> p_drop max: {p_drop.max()}')
     print(f'=> p_drop min: {p_drop.min()}')
+    print(f'=> p_drop for [the] = {p_drop[word2idx["the"]]}')
+    print(f'=> p_drop for [a] = {p_drop[word2idx["a"]]}')
+    print(f'=> p_drop for [this] = {p_drop[word2idx["this"]]}')
+    print(f'=> p_drop for [animal] = {p_drop[word2idx["animal"]]}')
+    print(f'=> p_drop for [scale] = {p_drop[word2idx["scale"]]}')
 
     for epoch in range(epochs):
         np.random.shuffle(indexed_sents)
@@ -78,10 +92,11 @@ def train_model():
             if len(sent) < 5:
                 continue
 
+            print(f'****** sentence {i} ******')
             print(f'=> sentence before drop: {get_words_from_idx(indexed_sents[i], idx2word)}')
             print(f'=> sentence after drop: {get_words_from_idx(sent, idx2word)}')
 
-            print(f'=> sentence length: {len(sent)}')
+            #print(f'=> sentence length: {len(sent)}')
 
             # randomize positions for this sentence
             randomly_ordered_positions = np.random.choice(
@@ -95,17 +110,17 @@ def train_model():
             for pos in randomly_ordered_positions:
                 # the middle word
                 word = sent[pos]
-                print(f'=> select word "{get_words_from_idx([word], idx2word)}"')
+                #print(f'=> select word "{get_words_from_idx([word], idx2word)}"')
 
                 context_words = get_context(pos, sent, window_size)
-                print(f'=> get context {get_words_from_idx(context_words, idx2word)}')
+                #print(f'=> get context {get_words_from_idx(context_words, idx2word)}')
 
                 # usually negative sampling is sampling negative context words
                 # with a fixed middle word
                 # but during implementation we fix the context words
                 # and insert an incorrect middle word
                 neg_word = np.random.choice(vocab_size, p=p_neg)
-                print(f'=> get neg_word: {get_words_from_idx([neg_word], idx2word)}')
+                #print(f'=> get neg_word: {get_words_from_idx([neg_word], idx2word)}')
 
                 targets = np.array(context_words)
                 c = sgd(word, targets, 1, learning_rate, W, V)
@@ -155,7 +170,7 @@ def sgd(input, targets, label, learning_rate, W, V):
 
 
 def get_context(pos, sentence, window_size):
-    print(f'* calling {get_context.__name__}')
+    #print(f'* calling {get_context.__name__}')
 
     # input:
     # a sentence of the form: x x x x c c c pos c c c x x x x
@@ -188,18 +203,14 @@ def get_negative_sampling_distribution(indexed_sents, vocab_size):
             word_freq[word] += 1
 
     # smooth it
-    # if we didn't add (** 0.75)
+    # if we didn't add (** 0.25)
     # the infrequent words are too infrequent
     # and so they are very unlikely to ever be sampled
-    p_neg = word_freq ** 0.75
+    p_neg = word_freq ** 0.25
 
     # normalization
     p_neg = p_neg / p_neg.sum()
 
-    print(f'=> p_neg shape {p_neg.shape}')
-    print(f'=> p_neg: {p_neg}')
-    print(f'=> p_neg max: {p_neg.max()}')
-    print(f'=> p_neg min: {p_neg.min()}')
     return p_neg
 
 
@@ -211,14 +222,16 @@ def load_model():
     V = npz['arr_1']
     return word2idx, W, V
 
+
 def analogy(pos1, neg1, pos2, neg2, word2idx, idx2word, W):
+
     V, D = W.shape
 
     # don't actually use pos2 in calculation, just print what's expected
-    print("testing: %s - %s = %s - %s" % (pos1, neg1, pos2, neg2))
+    print(f'testing: {pos1} - {neg1} = {pos2} - {neg2}')
     for w in (pos1, neg1, pos2, neg2):
         if w not in word2idx:
-            print("Sorry, %s not in word2idx" % w)
+            print(f'Sorry, {w} not in word2idx')
             return
 
     p1 = W[word2idx[pos1]]
@@ -241,51 +254,55 @@ def analogy(pos1, neg1, pos2, neg2, word2idx, idx2word, W):
             break
     # print("best_idx:", best_idx)
 
-    print("got: %s - %s = %s - %s" % (pos1, neg1, idx2word[best_idx], neg2))
-    print("closest 10:")
+    print(f'got: {pos1} - {neg1} = {idx2word[best_idx]} - {neg2}')
+    print(f'closest 10:')
     for i in idx:
         print(idx2word[i], distances[i])
 
-    print("dist to %s:" % pos2, cos_dist(p2, vec))
+    print(f'dist to {pos2}: {cos_dist(p2, vec)}')
 
 
 def test_model(word2idx, W, V):
+
+    idx2word = {i: w for w, i in word2idx.items()}
+
     # there are multiple ways to get the "final" word embedding
     # We = (W + V.T) / 2
     # We = W
 
-    idx2word = {i:w for w, i in word2idx.items()}
+    # use We = W here
+    # We = (W + V.T) / 2
+    We = W
+    print(f'****** Model Testing Start ******')
 
-    for We in (W, (W + V.T) / 2):
-        print("**********")
+    analogy('king', 'man', 'queen', 'woman', word2idx, idx2word, We)
+    analogy('king', 'prince', 'queen', 'princess', word2idx, idx2word, We)
+    analogy('miami', 'florida', 'dallas', 'texas', word2idx, idx2word, We)
+    analogy('einstein', 'scientist', 'picasso', 'painter', word2idx, idx2word, We)
+    analogy('japan', 'sushi', 'germany', 'bratwurst', word2idx, idx2word, We)
+    analogy('man', 'woman', 'he', 'she', word2idx, idx2word, We)
+    analogy('man', 'woman', 'uncle', 'aunt', word2idx, idx2word, We)
+    analogy('man', 'woman', 'brother', 'sister', word2idx, idx2word, We)
+    analogy('man', 'woman', 'husband', 'wife', word2idx, idx2word, We)
+    analogy('man', 'woman', 'actor', 'actress', word2idx, idx2word, We)
+    analogy('man', 'woman', 'father', 'mother', word2idx, idx2word, We)
+    analogy('heir', 'heiress', 'prince', 'princess', word2idx, idx2word, We)
+    analogy('nephew', 'niece', 'uncle', 'aunt', word2idx, idx2word, We)
+    analogy('france', 'paris', 'japan', 'tokyo', word2idx, idx2word, We)
+    analogy('france', 'paris', 'china', 'beijing', word2idx, idx2word, We)
+    analogy('february', 'january', 'december', 'november', word2idx, idx2word, We)
+    analogy('france', 'paris', 'germany', 'berlin', word2idx, idx2word, We)
+    analogy('week', 'day', 'year', 'month', word2idx, idx2word, We)
+    analogy('week', 'day', 'hour', 'minute', word2idx, idx2word, We)
+    analogy('france', 'paris', 'italy', 'rome', word2idx, idx2word, We)
+    analogy('paris', 'france', 'rome', 'italy', word2idx, idx2word, We)
+    analogy('france', 'french', 'england', 'english', word2idx, idx2word, We)
+    analogy('japan', 'japanese', 'china', 'chinese', word2idx, idx2word, We)
+    analogy('china', 'chinese', 'america', 'american', word2idx, idx2word, We)
+    analogy('japan', 'japanese', 'italy', 'italian', word2idx, idx2word, We)
+    analogy('japan', 'japanese', 'australia', 'australian', word2idx, idx2word, We)
+    analogy('walk', 'walking', 'swim', 'swimming', word2idx, idx2word, We)
 
-        analogy('king', 'man', 'queen', 'woman', word2idx, idx2word, We)
-        analogy('king', 'prince', 'queen', 'princess', word2idx, idx2word, We)
-        analogy('miami', 'florida', 'dallas', 'texas', word2idx, idx2word, We)
-        analogy('einstein', 'scientist', 'picasso', 'painter', word2idx, idx2word, We)
-        analogy('japan', 'sushi', 'germany', 'bratwurst', word2idx, idx2word, We)
-        analogy('man', 'woman', 'he', 'she', word2idx, idx2word, We)
-        analogy('man', 'woman', 'uncle', 'aunt', word2idx, idx2word, We)
-        analogy('man', 'woman', 'brother', 'sister', word2idx, idx2word, We)
-        analogy('man', 'woman', 'husband', 'wife', word2idx, idx2word, We)
-        analogy('man', 'woman', 'actor', 'actress', word2idx, idx2word, We)
-        analogy('man', 'woman', 'father', 'mother', word2idx, idx2word, We)
-        analogy('heir', 'heiress', 'prince', 'princess', word2idx, idx2word, We)
-        analogy('nephew', 'niece', 'uncle', 'aunt', word2idx, idx2word, We)
-        analogy('france', 'paris', 'japan', 'tokyo', word2idx, idx2word, We)
-        analogy('france', 'paris', 'china', 'beijing', word2idx, idx2word, We)
-        analogy('february', 'january', 'december', 'november', word2idx, idx2word, We)
-        analogy('france', 'paris', 'germany', 'berlin', word2idx, idx2word, We)
-        analogy('week', 'day', 'year', 'month', word2idx, idx2word, We)
-        analogy('week', 'day', 'hour', 'minute', word2idx, idx2word, We)
-        analogy('france', 'paris', 'italy', 'rome', word2idx, idx2word, We)
-        analogy('paris', 'france', 'rome', 'italy', word2idx, idx2word, We)
-        analogy('france', 'french', 'england', 'english', word2idx, idx2word, We)
-        analogy('japan', 'japanese', 'china', 'chinese', word2idx, idx2word, We)
-        analogy('china', 'chinese', 'america', 'american', word2idx, idx2word, We)
-        analogy('japan', 'japanese', 'italy', 'italian', word2idx, idx2word, We)
-        analogy('japan', 'japanese', 'australia', 'australian', word2idx, idx2word, We)
-        analogy('walk', 'walking', 'swim', 'swimming', word2idx, idx2word, We)
 
 if __name__ == '__main__':
     if Path(f'{savedir}/word2idx.json').is_file() and Path(f'{savedir}/weights.npz').is_file():

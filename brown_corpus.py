@@ -61,7 +61,7 @@ def get_sentences_with_word2idx():
     # and the dictionary for translating words back to index
     return indexed_sents, word2idx
 
-def get_sentences_with_word2idx_limit_vocab(n_vocab=5000, min_sent_length=9, keep_words=KEEP_WORDS):
+def get_sentences_with_word2idx_limit_vocab(n_vocab=20000, min_sent_length=9, keep_words=KEEP_WORDS):
     print(f'* calling {get_sentences_with_word2idx_limit_vocab.__name__}')
 
     sents = get_sentences()
