@@ -64,7 +64,7 @@ def get_sentences_with_word2idx_limit_vocab(n_vocab=20000, n_article=233000):
                 all_word_counts[word] += 1
             all_article_count += 1
     print(f'=> {len(all_word_counts)} words in this corpus')
-    print(f'=> {len(all_article_count)} articles in this corpus')
+    print(f'=> {all_article_count} articles in this corpus')
 
     V = min(V, len(all_word_counts))
 
