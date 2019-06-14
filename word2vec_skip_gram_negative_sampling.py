@@ -7,6 +7,10 @@ from scipy.special import expit as sigmoid
 from sklearn.metrics.pairwise import pairwise_distances
 from scipy.spatial.distance import cosine as cos_dist
 
+from nltk.corpus import stopwords
+import nltk
+nltk.download('stopwords')
+
 from brown_corpus import get_sentences_with_word2idx_limit_vocab, get_idx2word, get_words_from_idx
 
 savedir = 'trained_models/word2vec_skip_gram_negative_sampling'
@@ -70,6 +74,11 @@ def train_model():
     # *** Until common words can be dropped by a relative larger pos ***
     threshold = 7e-5
     p_drop = 1 - np.sqrt(threshold / p_neg)
+
+    stop_words = set(stopwords.words('english'))
+    index = [word2idx[word] if word in word2idx else word2idx['<UNK>'] for word in stop_words]
+    p_drop[index] = 0.9
+
     print(f'=> p_drop shape {p_drop.shape}')
     print(f'=> p_drop: {p_drop}')
     print(f'=> p_drop max: {p_drop.max()}')
@@ -140,7 +149,7 @@ def train_model():
 
     # save the model
     if not os.path.exists(savedir):
-        os.mkdir(savedir)
+        os.mkdirs(savedir)
 
     with open(f'{savedir}/word2idx.json', 'w') as f:
         json.dump(word2idx, f)

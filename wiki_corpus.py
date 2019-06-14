@@ -45,21 +45,26 @@ def make_corpus(in_file, out_file):
     print(f'=> Writing complete!')
     print(f'=> write file time: {t2 - t1}')
 
-
-def get_sentences_with_word2idx_limit_vocab(n_vocab=20000):
+# total 466000 articles in this corpus
+def get_sentences_with_word2idx_limit_vocab(n_vocab=20000, n_article=233000):
     print(f'* calling {get_sentences_with_word2idx_limit_vocab.__name__}')
 
     V = n_vocab
     all_word_counts = {}
+    all_article_count = 0
 
     for line in open(output_corpus_file, encoding='utf-8'):
+        if all_article_count > n_article:
+            break
         words = line.split()
         if len(words) > 1:
             for word in words:
                 if word not in all_word_counts:
                     all_word_counts[word] = 0
                 all_word_counts[word] += 1
+            all_article_count += 1
     print(f'=> {len(all_word_counts)} words in this corpus')
+    print(f'=> {len(all_article_count)} articles in this corpus')
 
     V = min(V, len(all_word_counts))
 
@@ -72,13 +77,17 @@ def get_sentences_with_word2idx_limit_vocab(n_vocab=20000):
     unk = word2idx['<UNK>']
 
     indexed_sents = []
+    i = 0
     for line in open(output_corpus_file, encoding='utf-8'):
+        if i > n_article:
+            break
         words = line.split()
         if len(words) > 1:
             # if a word is not nearby another word, there won't be any context!
             # and hence nothing to train!
             indexed_sent = [word2idx[word] if word in word2idx else unk for word in words]
             indexed_sents.append(indexed_sent)
+            i += 1
     return indexed_sents, word2idx
 
 

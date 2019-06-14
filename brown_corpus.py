@@ -115,14 +115,14 @@ def get_sentences_with_word2idx_limit_vocab(n_vocab=20000, min_sent_length=9, ke
         idx2newidx[idx] = new_idx
         new_idx += 1
     # add extra idx for 'UNKNOWN'
-    new_word2idx['UNKNOWN'] = new_idx
+    new_word2idx['<UNK>'] = new_idx
 
     print(f'=> get word2idx with vocab size {len(new_word2idx)}')
 
     # map old idx to new idx
     new_indexed_sents = []
     for sent in indexed_sents:
-        new_indexed_sent = [idx2newidx[idx] if idx in idx2newidx else new_word2idx['UNKNOWN'] for idx in sent]
+        new_indexed_sent = [idx2newidx[idx] if idx in idx2newidx else new_word2idx['<UNK>'] for idx in sent]
         new_indexed_sents.append(new_indexed_sent)
 
     return new_indexed_sents, new_word2idx
