@@ -1,6 +1,7 @@
 from gensim.corpora import WikiCorpus
 from pathlib import Path
 import time
+import sys
 
 # dump wiki data from https://dumps.wikimedia.org/enwiki/20190601/
 # or other version from https://dumps.wikimedia.org/enwiki/
@@ -46,7 +47,9 @@ def make_corpus(in_file, out_file):
     print(f'=> write file time: {t2 - t1}')
 
 # total 466000 articles in this corpus
-def get_sentences_with_word2idx_limit_vocab(n_vocab=20000, n_article=233000):
+# if you don't want to load all articles,
+# set n_article to the value you want
+def get_sentences_with_word2idx_limit_vocab(n_vocab=20000, n_article=sys.maxsize):
     print(f'* calling {get_sentences_with_word2idx_limit_vocab.__name__}')
 
     V = n_vocab
