@@ -149,7 +149,7 @@ def train_model():
 
     # save the model
     if not os.path.exists(savedir):
-        os.mkdirs(savedir)
+        os.makedirs(savedir)
 
     with open(f'{savedir}/word2idx.json', 'w') as f:
         json.dump(word2idx, f)
