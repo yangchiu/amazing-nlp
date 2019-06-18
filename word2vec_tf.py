@@ -194,7 +194,7 @@ def train_model():
                 print(f'********************** processed {i} / {len(indexed_sents)} **********************')
 
         dt = datetime.now() - t0
-        print(f'epoch complete: {epoch}, cost: {cost / len(indexed_sents)}, dt: {dt.strftime("%H:%M:%S")}')
+        print(f'epoch complete: {epoch}, cost: {cost / len(indexed_sents)}, dt: {dt.seconds // 60} mins {dt.seconds % 60} secs')
 
         costs.append(cost)
 
