@@ -1,10 +1,13 @@
 import numpy as np
 import pandas as pd
 import tensorflow as tf
+import os
 import matplotlib.pyplot as plt
 fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(10, 5))
 
 save_dir = 'linear_regression'
+if not os.path.exists(save_dir):
+    os.makedirs(save_dir)
 
 
 def create_data():

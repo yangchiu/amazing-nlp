@@ -3,3 +3,4 @@ venv/
 .settings/
 .idea/
 large_files/
+trained_models/
