@@ -4,7 +4,7 @@ import os
 import matplotlib.pyplot as plt
 fig, axes = plt.subplots(nrows=2, ncols=3, figsize=(12, 8))
 
-save_dir = 'rnn_reconstruct_sequences'
+save_dir = 'simple_rnn_reconstruct_sequences'
 if not os.path.exists(save_dir):
     os.makedirs(save_dir)
 
@@ -128,6 +128,12 @@ if __name__ == '__main__':
     # tf.nn.dynamic_rnn solves this.
     # It uses a tf.While loop to dynamically construct the graph when it is executed.
     # That means graph creation is faster and you can feed batches of variable size.
+
+    # The tf.nn.dynamic_rnn() or tf.nn.rnn() operations allow to specify the initial state
+    # of the RNN using the initial_state parameter.
+    # If you don't specify this parameter,
+    # the hidden states will be initialized to zero vectors at the beginning of
+    # each training batch.
 
     # outputs: The RNN output Tensor
     # shape = [batch_size, steps, cell_state_size (number of units in the cell)]
