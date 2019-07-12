@@ -4,3 +4,6 @@ venv/
 .idea/
 large_files/
 trained_models/
+
+.*
+checkpoint

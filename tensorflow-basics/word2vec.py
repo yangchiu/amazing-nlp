@@ -214,8 +214,31 @@ if __name__ == '__main__':
     train = optimizer.minimize(loss)
 
     # normalize word embeddings
+    #
+    # embeddings shape = (vocab_size, embedding_size)
+    # tf.reduce_sum(axis=1, keep_dims=True) will sum all the values up along axis 1 (embedding_size)
+    # return a tensor with shape (vocab_size, 1)
+    # if keep_dims = False
+    # it will return a tensor with shape (vocab_size, )
     norm = tf.sqrt(tf.reduce_sum(tf.square(embeddings), axis=1, keep_dims=True))
+    # you should normalize using the Euclidean norm (L2).
+    # This is equivalent to using cosine similarity at all times.
+    # We have experimented with various normalizations (including none),
+    # and found L2 to provide generally better results on a collection of word similarity and analogy tasks.
     normalized_embeddings = embeddings / norm
+
+    # after training, use this dataset to evaluate similarity
+    valid_dataset = [
+        text8.word2idx.get('king'),
+        text8.word2idx.get('queen'),
+        text8.word2idx.get('dog'),
+        text8.word2idx.get('flower'),
+        text8.word2idx.get('scientist'),
+        text8.word2idx.get('france'),
+        text8.word2idx.get('walk')
+    ]
+    valid_embeddings = tf.nn.embedding_lookup(normalized_embeddings, valid_dataset)
+    similarity = tf.matmul(valid_embeddings, normalized_embeddings, transpose_b=True)
 
     # init
     init = tf.global_variables_initializer()
@@ -243,7 +266,21 @@ if __name__ == '__main__':
                 print(f'=> epoch {i}, average loss = {average_loss}')
                 average_loss = 0
 
+        # normalized_embeddings is derived from embeddings,
+        # which is a variable, not an operation
+        # no need to feed_dict
         final_embeddings = normalized_embeddings.eval()
+
+        # evaluate the similarity
+        sim = similarity.eval()
+        top = 8
+        for k in range(len(valid_dataset)):
+            word = text8.idx2word.get(valid_dataset[k])
+            nearest = (-sim[k, :]).argsort()[1: top+1]
+            print(f'=> nearest to {word}:')
+            for m in range(top):
+                closest_word = text8.idx2word.get(nearest[m])
+                print(f'[{m + 1}] {closest_word}')
 
         saver.save(sess, f'{save_dir}/')
 
