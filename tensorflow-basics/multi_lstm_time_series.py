@@ -68,7 +68,7 @@ if __name__ == '__main__':
     # rnn cell would be unrolled to this size
     steps = 12
     # num of hidden neurons in one rnn layer
-    num_neurons = 100
+    num_hidden = 100
     # output dimension
     num_outputs = 1
     # num of rnn layers
@@ -81,7 +81,6 @@ if __name__ == '__main__':
     # placeholders
     x = tf.placeholder(tf.float32, shape=[None, steps, num_inputs])
     y = tf.placeholder(tf.float32, shape=[None, steps, num_outputs])
-    init_state = tf.placeholder(tf.float32, shape=[num_layers, 2, batch_size, num_neurons])
     # If we consider an individual LSTM cell, for each training sample it processes it has two other inputs:
     # the previous output from the cell h(t-1)
     # and the previous state variable s(t-1)
@@ -91,40 +90,57 @@ if __name__ == '__main__':
     # Therefore, for all the samples in the batch,
     # for a single LSTM cell we have state data required of shape (2, batch_size, hidden_size).
     #
-    # Finally, if we have stacked LSTM cell layers, we need state variables for each layer – num_layers. T
-    # his gives the final shape of the state variables: (num_layers, 2, batch_size, hidden_size).
+    # Finally, if we have stacked LSTM cell layers, we need state variables for each layer – num_layers.
+    # This gives the final shape of the state variables: (num_layers, 2, batch_size, num_hidden).
+    init_state = tf.placeholder(tf.float32, shape=[num_layers, 2, batch_size, num_hidden])
 
-    state_per_layer_list = tf.unstack(init_state, axis=0)
-    # The tf.unstack command creates a number of tensors, each of shape (2, batch_size, hidden_size),
-    # from the init_state tensor, one for each stacked LSTM layer (num_layer).
+    keep_prob = tf.placeholder(tf.float32)
+
+    # The tf.unstack command creates a number of tensors, each of shape (2, batch_size, num_hidden),
+    # from the init_state tensor, one for each stacked LSTM layer (num_layers).
     #
     # These tensors are then loaded into a specific TensorFlow data structure:
     # LSTMStateTuple, which is the required for input into the LSTM cells.
+    state_per_layer_list = tf.unstack(init_state, axis=0)
     lstm_tuple_state = tuple(
         [tf.contrib.rnn.LSTMStateTuple(
             state_per_layer_list[idx][0],
             state_per_layer_list[idx][1])
-         for idx in range(num_layers)]
+            for idx in range(num_layers)
+        ]
     )
 
     # layers
-    cell = []
+
+    # do not use [cell] * num_layers to create multiple rnn cells
+    # do not use [cell for _ range(num_layers)] to create multiple rnn cells
+    # else you will encounter "ValueError: Dimensions must be equal" error
+    # use the code below to create "separate" rnn cell instances,
+    # instead of different pointers point to the same rnn cell instance.
+    cells = []
     for i in range(num_layers):
-        cell.append(tf.contrib.rnn.LSTMCell(num_units=num_neurons, forget_bias=1.0, state_is_tuple=True))
+        # set the forget bias values to be equal to 1.0,
+        # which helps guard against repeated low forget gate outputs causing vanishing gradients
+        cells.append(tf.contrib.rnn.LSTMCell(num_units=num_hidden, forget_bias=1.0, state_is_tuple=True))
+    for i in range(num_layers):
+        cells[i] = tf.contrib.rnn.DropoutWrapper(cells[i], output_keep_prob=keep_prob)
 
-    cell = tf.contrib.rnn.MultiRNNCell(cell, state_is_tuple=True)
+    multicell = tf.contrib.rnn.MultiRNNCell(cells, state_is_tuple=True)
 
-    outputs, states = tf.nn.dynamic_rnn(cell, x, dtype=tf.float32, initial_state=lstm_tuple_state)
-    # reshape from [batch_size, steps, num_neurons]
-    # to [batch_size * steps, num_neurons]
-    outputs = tf.reshape(outputs, [-1, num_neurons])
+    outputs, states = tf.nn.dynamic_rnn(multicell, x, dtype=tf.float32, initial_state=lstm_tuple_state)
+    # reshape outputs from [batch_size, steps, num_hidden]
+    # to [batch_size * steps, num_hidden]
+    # so we can perform x * W + b
+    # to reduce dimension from num_hidden to num_outputs
+    outputs = tf.reshape(outputs, [-1, num_hidden])
 
-    logits_w = init_weights([num_neurons, num_outputs])
+    logits_w = init_weights([num_hidden, num_outputs])
     logits_b = init_bias([num_outputs])
     logits = tf.nn.xw_plus_b(outputs, logits_w, logits_b)
 
-    # reshape from [batch_size * steps, num_outputs]
+    # reshape logits from [batch_size * steps, num_outputs]
     # to [batch_size, steps, num_outputs]
+    # so it can be compared with y_true
     logits = tf.reshape(logits, [batch_size, steps, num_outputs])
 
     # loss
@@ -146,19 +162,20 @@ if __name__ == '__main__':
         for i in range(epochs):
 
             x_batch, y_batch = milk_production.next_batch(batch_size, steps)
-            current_state = np.zeros((num_layers, 2, batch_size, num_neurons))
+            current_state = np.zeros((num_layers, 2, batch_size, num_hidden))
             _, loss_ = sess.run([train, loss], feed_dict={
                 x: x_batch,
                 y: y_batch,
-                init_state: current_state
+                init_state: current_state,
+                keep_prob: 0.5
             })
-            #print(loss_)
 
             if i % 100 == 0:
                 mse = loss.eval(feed_dict={
                     x: x_batch,
                     y: y_batch,
-                    init_state: current_state
+                    init_state: current_state,
+                    keep_prob: 1.0
                 })
                 print(f'=> epoch {i}, mse = {mse}')
 
@@ -178,7 +195,8 @@ if __name__ == '__main__':
             x_batch = np.array(train_seed[-steps:]).reshape(-1, steps, 1)
             y_pred = sess.run(logits, feed_dict={
                 x: x_batch,
-                init_state: current_state
+                init_state: current_state,
+                keep_prob: 1.0
             })
             train_seed.append(y_pred[0, -1, 0])
 
