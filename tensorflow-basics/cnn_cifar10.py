@@ -1,12 +1,18 @@
 import pickle
 import numpy as np
 import tensorflow as tf
+import os
 
-cifar_dir = 'cifar-10-batches-py'
+save_dir = 'cnn_cifar10/'
+if not os.path.exists(save_dir):
+    os.makedirs(save_dir)
+
+cifar_dir = 'cifar-10-batches-py/'
 cifar_filenames = ['batches.meta', 'data_batch_1',
                    'data_batch_2', 'data_batch_3',
                    'data_batch_4', 'data_batch_5',
                    'test_batch']
+
 
 class CifarHelper():
 
@@ -35,20 +41,20 @@ class CifarHelper():
                 cifar_data = pickle.load(f, encoding='bytes')
             return cifar_data
 
-        batch_meta = unpickle(f'{cifar_dir}/{cifar_filenames[0]}')
+        batch_meta = unpickle(os.path.join(save_dir, cifar_dir, cifar_filenames[0]))
         self.label_names = batch_meta[b'label_names']
         print(f'=> get cifar label names:')
         print(f'   {self.label_names}')
 
-        self.train_batch.append(unpickle(f'{cifar_dir}/{cifar_filenames[1]}'))
-        self.train_batch.append(unpickle(f'{cifar_dir}/{cifar_filenames[2]}'))
-        self.train_batch.append(unpickle(f'{cifar_dir}/{cifar_filenames[3]}'))
-        self.train_batch.append(unpickle(f'{cifar_dir}/{cifar_filenames[4]}'))
-        self.train_batch.append(unpickle(f'{cifar_dir}/{cifar_filenames[5]}'))
+        self.train_batch.append(unpickle(os.path.join(save_dir, cifar_dir, cifar_filenames[1])))
+        self.train_batch.append(unpickle(os.path.join(save_dir, cifar_dir, cifar_filenames[2])))
+        self.train_batch.append(unpickle(os.path.join(save_dir, cifar_dir, cifar_filenames[3])))
+        self.train_batch.append(unpickle(os.path.join(save_dir, cifar_dir, cifar_filenames[4])))
+        self.train_batch.append(unpickle(os.path.join(save_dir, cifar_dir, cifar_filenames[5])))
         print(f'=> get cifar train batch:')
         print(f'   {self.train_batch[0].keys()}')
 
-        self.test_batch.append(unpickle(f'{cifar_dir}/{cifar_filenames[6]}'))
+        self.test_batch.append(unpickle(os.path.join(save_dir, cifar_dir, cifar_filenames[6])))
         print(f'=> get cifar test batch:')
         print(f'   {self.test_batch[0].keys()}')
 

@@ -5,7 +5,7 @@ import os
 import matplotlib.pyplot as plt
 fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(10, 5))
 
-save_dir = 'linear_regression'
+save_dir = 'linear_regression/'
 if not os.path.exists(save_dir):
     os.makedirs(save_dir)
 
@@ -104,5 +104,4 @@ if __name__ == '__main__':
                                      title='data scatter plot + model prediction',
                                      ax=axes[1])
     fig.plot(x_data, y_hat, 'r')
-    plt.savefig(f'{save_dir}/fig.png')
-
+    plt.savefig(os.path.join(save_dir, 'fig.png'))

@@ -152,7 +152,7 @@ class Text8():
             # after got # of num_skip sample,
             # move to the next window
             if self.current_corpus_index == self.corpus_len:
-                dq[:] = self.indexed_corpus[:span]
+                dq.extend(self.indexed_corpus[:span])
                 self.current_corpus_index = span
             else:
                 dq.append(self.indexed_corpus[self.current_corpus_index])
@@ -180,7 +180,7 @@ if __name__ == '__main__':
     learning_rate = 0.01
     vocab_size = 50000
 
-    epochs = 10000
+    epochs = 2000#600000
 
     # placeholders
     train_inputs = tf.placeholder(tf.int32, shape=[None])
@@ -238,6 +238,9 @@ if __name__ == '__main__':
         text8.word2idx.get('walk')
     ]
     valid_embeddings = tf.nn.embedding_lookup(normalized_embeddings, valid_dataset)
+    # valid_embeddings shape = (valid_dataset_size, embedding_size)
+    # normalized_embeddings shape = (vocab_size, embedding_size)
+    # similarity shape = (valid_dataset_size, vocab_size)
     similarity = tf.matmul(valid_embeddings, normalized_embeddings, transpose_b=True)
 
     # init
@@ -273,9 +276,14 @@ if __name__ == '__main__':
 
         # evaluate the similarity
         sim = similarity.eval()
+        # similarity is from -1 to +1
+        # higher similarity means they're closer to each other
+        # +1 means they're the same word
         top = 8
         for k in range(len(valid_dataset)):
             word = text8.idx2word.get(valid_dataset[k])
+            # argsort is ascending order
+            # so add "-" to let the largest value be in the head of the list
             nearest = (-sim[k, :]).argsort()[1: top+1]
             print(f'=> nearest to {word}:')
             for m in range(top):
@@ -297,7 +305,7 @@ if __name__ == '__main__':
                          ha='right',
                          va='bottom')
         plt.show()
-        plt.savefig(f'{save_dir}/tsne.png')
+        plt.savefig(os.path.join(save_dir, 'tsne.png'))
 
     print(f'=> get embeddings with shape {final_embeddings.shape}')
 
@@ -309,4 +317,4 @@ if __name__ == '__main__':
 
     plot_with_labels(low_dim_embeddings, labels)
 
-    np.save(f'{save_dir}/trained_embeddings_200k_steps', final_embeddings)
+    np.save(os.path.join(save_dir, 'trained_embeddings_200k_steps'), final_embeddings)

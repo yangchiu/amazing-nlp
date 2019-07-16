@@ -6,7 +6,7 @@ import os
 import matplotlib.pyplot as plt
 fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(10, 5))
 
-save_dir = 'multi_lstm_time_series'
+save_dir = 'multi_lstm_time_series/'
 if not os.path.exists(save_dir):
     os.makedirs(save_dir)
 
@@ -40,7 +40,7 @@ class MilkProductionData():
         self.get_data()
 
     def get_data(self):
-        df = pd.read_csv(f'{save_dir}/monthly-milk-production.csv', index_col='Month')
+        df = pd.read_csv(os.path.join(save_dir, 'monthly-milk-production.csv'), index_col='Month')
         df.index = pd.to_datetime(df.index)
         df.plot(title='training data', ax=axes[0])
         self.train_set = df.head(156)
@@ -179,12 +179,12 @@ if __name__ == '__main__':
                 })
                 print(f'=> epoch {i}, mse = {mse}')
 
-        saver.save(sess, f'{save_dir}/')
+        saver.save(sess, save_dir)
 
     # restore session
     with tf.Session() as sess:
 
-        saver.restore(sess, f'{save_dir}/')
+        saver.restore(sess, save_dir)
 
         # repeatedly use last 12 month data to predict the 13rd month data
         train_seed = list(milk_production.train_set[-12:])
@@ -207,4 +207,4 @@ if __name__ == '__main__':
         milk_production.test_set['Generated'] = results
         print(milk_production.test_set)
         milk_production.test_set.plot(title='prediction', ax=axes[1])
-        plt.savefig(f'{save_dir}/fig.png')
+        plt.savefig(os.path.join(save_dir, 'fig.png'))

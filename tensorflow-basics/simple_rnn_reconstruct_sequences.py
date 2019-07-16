@@ -2,9 +2,8 @@ import numpy as np
 import tensorflow as tf
 import os
 import matplotlib.pyplot as plt
-fig, axes = plt.subplots(nrows=2, ncols=3, figsize=(12, 8))
 
-save_dir = 'simple_rnn_reconstruct_sequences'
+save_dir = 'simple_rnn_reconstruct_sequences/'
 if not os.path.exists(save_dir):
     os.makedirs(save_dir)
 
@@ -68,17 +67,18 @@ if __name__ == '__main__':
 
     time_series = TimeSeriesData(250, 0, 10)
 
+    plt.figure(figsize=(12, 8))
     plt.subplot(2, 3, 1)
     plt.plot(time_series.t_data, time_series.y_true)
     plt.title('generated time series')
-    plt.savefig(f'{save_dir}/fig.png')
+    plt.savefig(os.path.join(save_dir, 'fig.png'))
 
     steps = 30
     y1, y2, ts = time_series.next_batch(1, steps, True)
     plt.subplot(2, 3, 2)
     plt.plot(ts.flatten()[1:], y2.flatten(), '*')
     plt.title('sampled time series')
-    plt.savefig(f'{save_dir}/fig.png')
+    plt.savefig(os.path.join(save_dir, 'fig.png'))
 
     plt.subplot(2, 3, 3)
     plt.plot(time_series.t_data, time_series.y_true, label='sin(t)')
@@ -86,7 +86,7 @@ if __name__ == '__main__':
     plt.legend()
     plt.title('generated & sampled time series overlapping')
     #plt.tight_layout()
-    plt.savefig(f'{save_dir}/fig.png')
+    plt.savefig(os.path.join(save_dir, 'fig.png'))
 
     # create model
 
@@ -202,11 +202,11 @@ if __name__ == '__main__':
                 })
                 print(f'=> step {i}, mse = {mse}')
 
-        saver.save(sess, f'{save_dir}/')
+        saver.save(sess, save_dir)
 
     # predict a time series t+1 based on trained model
     with tf.Session() as sess:
-        saver.restore(sess, f'{save_dir}/')
+        saver.restore(sess, save_dir)
 
         # generate new time series
         t_series = np.linspace(30, 30 + time_series.resolution * (steps + 1), steps + 1)
@@ -232,7 +232,7 @@ if __name__ == '__main__':
 
     # generate new sequences
     with tf.Session() as sess:
-        saver.restore(sess, f'{save_dir}/')
+        saver.restore(sess, save_dir)
 
         zero_seeds = [0 for i in range(steps)]
         for i in range(len(time_series.t_data) - steps):
@@ -248,4 +248,4 @@ if __name__ == '__main__':
         plt.plot(time_series.t_data[:steps], zero_seeds[:steps], "r", linewidth=3)
         plt.xlabel("t")
         plt.title('generate new sequences')
-        plt.savefig(f'{save_dir}/fig.png')
+        plt.savefig(os.path.join(save_dir, 'fig.png'))

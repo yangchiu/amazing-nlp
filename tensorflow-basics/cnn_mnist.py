@@ -1,5 +1,12 @@
 import tensorflow as tf
 from tensorflow.examples.tutorials.mnist import input_data
+import os
+
+save_dir = 'cnn_mnist/'
+if not os.path.exists(save_dir):
+    os.makedirs(save_dir)
+
+data_dir = 'MNIST_data/'
 
 
 # helper functions
@@ -64,7 +71,7 @@ def normal_full_layer(input_layer, size):
 
 if __name__ == '__main__':
 
-    mnist = input_data.read_data_sets('MNIST_data/', one_hot=True)
+    mnist = input_data.read_data_sets(os.path.join(save_dir, data_dir), one_hot=True)
 
     # placeholders
     x = tf.placeholder(tf.float32, shape=[None, 784])

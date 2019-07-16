@@ -10,7 +10,7 @@ save_dir = 'gan/'
 if not os.path.exists(save_dir):
     os.makedirs(save_dir)
 
-data_dir = 'MNIST_data'
+data_dir = 'MNIST_data/'
 
 
 # With a Leaky ReLU (LReLU),

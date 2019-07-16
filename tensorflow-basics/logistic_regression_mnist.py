@@ -3,15 +3,16 @@ from tensorflow.examples.tutorials.mnist import input_data
 import matplotlib.pyplot as plt
 import os
 
-save_dir = 'logistic_regression_mnist'
+save_dir = 'logistic_regression_mnist/'
 if not os.path.exists(save_dir):
     os.makedirs(save_dir)
 
+data_dir = 'MNIST_data'
 
 if __name__ == '__main__':
 
     print(f'* read mnist data')
-    mnist = input_data.read_data_sets('MNIST_data/', one_hot=True)
+    mnist = input_data.read_data_sets(os.path.join(save_dir, data_dir), one_hot=True)
     print(f'=> shape of training data: {mnist.train.images.shape}')
     print(f'=> shape of test data: {mnist.test.images.shape}')
     print(f'=> shape of validation data: {mnist.validation.images.shape}')
@@ -19,7 +20,7 @@ if __name__ == '__main__':
     print(f'=> min value in image: {mnist.train.images[1].min()}')
 
     plt.imshow(mnist.train.images[1].reshape(28, 28), cmap='gist_gray')
-    plt.savefig(f'{save_dir}/sample.png')
+    plt.savefig(os.path.join(save_dir, 'sample.png'))
 
     print(f'* create model and start training')
     # placeholder
