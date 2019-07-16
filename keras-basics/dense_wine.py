@@ -35,6 +35,8 @@ if __name__ == '__main__':
     # loss, optimizer and metric
     dnn_model.compile(
         optimizer='adam',
+        # if your targets are one-hot encoded, use categorical_crossentropy.
+        # if your targets are integers, use sparse_categorical_crossentropy.
         loss='sparse_categorical_crossentropy',
         metrics=['accuracy']
     )
@@ -43,5 +45,21 @@ if __name__ == '__main__':
     dnn_model.fit(scaled_x_train, y_train, epochs=50)
 
     # test
+
+    # model.predict will return the scores of the regression
+    # model.predict_class will return the class of your prediction
+    #
+    # imagine you are trying to predict if the picture is a dog or a cat (you have a classifier):
+    #
+    # predict will return you: 0.6 cat and 0.2 dog (for example).
+    # predict_class will return you cat
+    #
+    # Now imagine you are trying to predict house prices (you have a regressor):
+    #
+    # predict will return the predicted price
+    # predict_class will not make sense here since you don't have a classifier
+    #
+    # TL:DR: use predict_class for classifiers (outputs are labels)
+    # and use predict for regressions (outputs are non discrete)
     predictions = dnn_model.predict_classes(scaled_x_test)
     print(classification_report(predictions, y_test))
