@@ -4,6 +4,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import os
 
+# gan is for Generative Adversarial Network
+
 save_dir = 'gan/'
 if not os.path.exists(save_dir):
     os.makedirs(save_dir)
