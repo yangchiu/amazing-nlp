@@ -106,7 +106,7 @@ class Text8():
         batch = np.ndarray(shape=(batch_size,), dtype=np.int32)
 
         # labels = outputs (y_true)
-        labels = np.ndarray(shape=(batch_size,1), dtype=np.int32)
+        labels = np.ndarray(shape=(batch_size, 1), dtype=np.int32)
 
         # span = the whole range can be sampled
         # [ skip_window <-- target --> skip_window ]
@@ -167,7 +167,7 @@ if __name__ == '__main__':
 
     # constants
     batch_size = 128
-    embedding_size = 150
+    embedding_size = 128
     # how many words to consider left and right
     # window = [ skip_window <-- target --> skip_window ]
     skip_window = 1
@@ -177,30 +177,33 @@ if __name__ == '__main__':
     # number of negative examples to sample in nce_loss
     num_neg_sampled = 64
 
-    learning_rate = 0.01
-    vocab_size = 50000
+    learning_rate = 1.0
+    vocab_size = 50001 # 50000 vocab + <unk>
 
-    epochs = 2000#600000
+    epochs = 100000
 
     # placeholders
     train_inputs = tf.placeholder(tf.int32, shape=[None])
     # the shape of train_labels for nce_loss must be rank 2
     train_labels = tf.placeholder(tf.int32, shape=[None, 1])
 
-    # variables
-    embeddings = tf.Variable(
-        tf.random_uniform([vocab_size, embedding_size], -1.0, 1.0)
-    )
-    embed = tf.nn.embedding_lookup(embeddings, train_inputs)
-
-    # loss
-    nce_weights = tf.Variable(
-        tf.truncated_normal(
-            [vocab_size, embedding_size],
-            stddev=1.0/np.sqrt(embedding_size)
+    # ??? ops and variables pinned to the CPU because of missing GPU implementation ???
+    # not sure it's needed or not
+    with tf.device('/cpu:0'):
+        # variables
+        embeddings = tf.Variable(
+            tf.random_uniform([vocab_size, embedding_size], -1.0, 1.0)
         )
-    )
-    nce_bias = tf.Variable(tf.zeros([vocab_size]))
+        embed = tf.nn.embedding_lookup(embeddings, train_inputs)
+
+        # loss
+        nce_weights = tf.Variable(
+            tf.truncated_normal(
+                [vocab_size, embedding_size],
+                stddev=1.0/np.sqrt(embedding_size)
+            )
+        )
+        nce_bias = tf.Variable(tf.zeros([vocab_size]))
     # tf.nce_loss automatically draws a new sample of the negative labels
     # each time we evaluate the loss
     loss = tf.reduce_mean(
@@ -210,7 +213,7 @@ if __name__ == '__main__':
     )
 
     # optimizer
-    optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate)
+    optimizer = tf.train.GradientDescentOptimizer(learning_rate=learning_rate)
     train = optimizer.minimize(loss)
 
     # normalize word embeddings
@@ -220,7 +223,7 @@ if __name__ == '__main__':
     # return a tensor with shape (vocab_size, 1)
     # if keep_dims = False
     # it will return a tensor with shape (vocab_size, )
-    norm = tf.sqrt(tf.reduce_sum(tf.square(embeddings), axis=1, keep_dims=True))
+    norm = tf.sqrt(tf.reduce_sum(tf.square(embeddings), axis=1, keepdims=True))
     # you should normalize using the Euclidean norm (L2).
     # This is equivalent to using cosine similarity at all times.
     # We have experimented with various normalizations (including none),
@@ -229,13 +232,16 @@ if __name__ == '__main__':
 
     # after training, use this dataset to evaluate similarity
     valid_dataset = [
-        text8.word2idx.get('king'),
-        text8.word2idx.get('queen'),
-        text8.word2idx.get('dog'),
-        text8.word2idx.get('flower'),
-        text8.word2idx.get('scientist'),
-        text8.word2idx.get('france'),
-        text8.word2idx.get('walk')
+        text8.word2idx.get('two'),
+        text8.word2idx.get('that'),
+        text8.word2idx.get('his'),
+        text8.word2idx.get('were'),
+        text8.word2idx.get('all'),
+        text8.word2idx.get('area'),
+        text8.word2idx.get('east'),
+        text8.word2idx.get('himself'),
+        text8.word2idx.get('white'),
+        text8.word2idx.get('man')
     ]
     valid_embeddings = tf.nn.embedding_lookup(normalized_embeddings, valid_dataset)
     # valid_embeddings shape = (valid_dataset_size, embedding_size)
