@@ -48,6 +48,8 @@ if __name__ == '__main__':
     # loss, optimizer and metric
     model.compile(
         optimizer='adam',
+        # if your targets are one-hot encoded, use categorical_crossentropy.
+        # if your targets are integers, use sparse_categorical_crossentropy.
         loss='categorical_crossentropy',
         metrics=['accuracy']
     )
