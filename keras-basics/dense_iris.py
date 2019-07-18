@@ -32,6 +32,11 @@ def get_data():
     scaled_x_train = scaler.fit_transform(x_train)
     scaled_x_test = scaler.transform(x_test)
 
+    print(f'=> x_train shape = {scaled_x_train.shape}')
+    print(f'=> x_test shape = {scaled_x_test.shape}')
+    print(f'=> y_train shape = {y_train.shape}')
+    print(f'=> y_test shape = {y_test.shape}')
+
     return scaled_x_train, scaled_x_test, y_train, y_test
 
 
@@ -57,6 +62,7 @@ if __name__ == '__main__':
     model.summary()
 
     # train
+    # batch_size can be assigned here. if unspecified, batch_size will default to 32.
     model.fit(scaled_x_train, y_train, epochs=150, verbose=2)
 
     # test

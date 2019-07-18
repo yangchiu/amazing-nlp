@@ -100,10 +100,14 @@ class NovelData():
     def x_y_split(self):
         print(f'* calling {NovelData.x_y_split.__name__}')
 
+        # no need to one-hot encoding x, keras embedding layer take the raw indexed sequences
         self.x = self.indexed_sequences[:, :-self.target_len]
         self.y = self.indexed_sequences[:, -self.target_len]
         # one-hot encoding
         self.y = to_categorical(self.y, num_classes=self.vocab_size+1)
+
+        print(f'=> x shape = {self.x.shape}')
+        print(f'=> y shape = {self.y.shape}')
 
 
 def generate_text(model, tokenizer, max_input_seq_len, input_seq, num_gen_words):
@@ -196,6 +200,7 @@ if __name__ == '__main__':
         )
         model.summary()
 
+        # batch_size can be assigned here. if unspecified, batch_size will default to 32.
         model.fit(novel_data.x, novel_data.y, epochs=300, verbose=1)
 
         model.save(os.path.join(save_dir, model_name))
