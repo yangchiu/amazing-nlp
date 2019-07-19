@@ -37,6 +37,11 @@ def get_data():
     print(f'=> y_train shape = {y_train.shape}')
     print(f'=> y_test shape = {y_test.shape}')
 
+    # => x_train shape = (105, 4)
+    # => x_test shape = (45, 4)
+    # => y_train shape = (105, 3)
+    # => y_test shape = (45, 3)
+
     return scaled_x_train, scaled_x_test, y_train, y_test
 
 
@@ -46,9 +51,18 @@ if __name__ == '__main__':
 
     # model
     model = Sequential()
+
+    # input shape = (batch_size, input_dim=4) batch_size is handled by model.fit
     model.add(Dense(units=8, input_dim=4, activation='relu'))
+    # output shape = (batch_size, units=8)
+
+    # input shape = (batch_size, input_dim=8) batch_size is handled by model.fit
     model.add(Dense(units=8, activation='relu'))
+    # output shape = (batch_size, units=8)
+
+    # input shape = (batch_size, input_dim=8) batch_size is handled by model.fit
     model.add(Dense(units=3, activation='softmax'))
+    # output shape = (batch_size, units=3)
 
     # loss, optimizer and metric
     model.compile(

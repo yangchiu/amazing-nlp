@@ -22,6 +22,11 @@ def get_data():
     print(f'=> y_train shape = {y_train.shape}')
     print(f'=> y_test shape = {y_test.shape}')
 
+    # => x_train shape = (124, 13)
+    # => x_test shape = (54, 13)
+    # => y_train shape = (124,)
+    # => y_test shape = (54,)
+
     return scaled_x_train, scaled_x_test, y_train, y_test
 
 
@@ -33,10 +38,21 @@ if __name__ == '__main__':
     dnn_model = models.Sequential()
 
     # layers
+    # input shape = (batch_size, input_dim=13) batch_size is handled by model.fit
     dnn_model.add(layers.Dense(units=13, input_dim=13, activation='relu'))
+    # output shape = (batch_size, units=13)
+
+    # input shape = (batch_size, input_dim=13) batch_size is handled by model.fit
     dnn_model.add(layers.Dense(units=13, activation='relu'))
+    # output shape = (batch_size, units=13)
+
+    # input shape = (batch_size, input_dim=13) batch_size is handled by model.fit
     dnn_model.add(layers.Dense(units=13, activation='relu'))
+    # output shape = (batch_size, units=13)
+
+    # input shape = (batch_size, input_dim=13) batch_size is handled by model.fit
     dnn_model.add(layers.Dense(units=3, activation='softmax'))
+    # output shape = (batch_size, units=3)
 
     # loss, optimizer and metric
     dnn_model.compile(

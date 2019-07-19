@@ -109,6 +109,9 @@ class NovelData():
         print(f'=> x shape = {self.x.shape}')
         print(f'=> y shape = {self.y.shape}')
 
+        # => x shape = (11312, 25)
+        # => y shape = (11312, 2718)
+
 
 def generate_text(model, tokenizer, max_input_seq_len, input_seq, num_gen_words):
     print(f'* calling {generate_text.__name__}')
@@ -175,20 +178,34 @@ if __name__ == '__main__':
 
         # model
         model = Sequential()
+
+        # input shape = (batch_size, sequence_length=input_length=train_steps) batch_size is handled by model.fit
         model.add(
             Embedding(input_dim=vocab_size,
-                      output_dim=32,
-                      input_length=novel_data.train_steps)
+                      input_length=novel_data.train_steps,
+                      output_dim=32)
         )
+        # output shape = (batch_size, sequence_length, output_dim=32)
+
+        # input shape = (batch_size, steps, input_dim=32) batch_size is handled by model.fit
         # units: dimensionality of the output space.
         # return_sequences: whether to return the last output in the output sequence, or the full sequence.
         model.add(LSTM(units=150,
                        return_sequences=True))
+        # output shape = (batch_size, steps, units=150)
+
+        # input shape = (batch_size, steps, input_dim=150) batch_size is handled by model.fit
         # only keep the last output
         model.add(LSTM(units=150))
-        # units: dimensionality of the output space.
+        # output shape = (batch_size, units=150)
+
+        # input shape = (batch_size, input_dim=150) batch_size is handled by model.fit
         model.add(Dense(units=150, activation='relu'))
+        # output shape = (batch_size, units=150)
+
+        # input shape = (batch_size, input_dim=150) batch_size is handled by model.fit
         model.add(Dense(units=vocab_size, activation='softmax'))
+        # output shape = (batch_size, units=vocab_size)
 
         # loss, optimizer, metric
         model.compile(
