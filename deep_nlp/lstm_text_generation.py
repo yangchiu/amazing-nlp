@@ -17,6 +17,7 @@ filename = 'moby_dick_four_chapters.txt' # 'melville-moby_dick.txt'
 model_name = 'model.h5'
 tokenizer_name = 'tokenizer'
 
+
 class NovelData():
 
     def __init__(self, save_dir, filename):
