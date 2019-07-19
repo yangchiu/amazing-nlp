@@ -181,6 +181,8 @@ if __name__ == '__main__':
         model = Sequential()
 
         # input shape = (batch_size, sequence_length=input_length=train_steps) batch_size is handled by model.fit
+        # although the input_dim = vocab_size,
+        # the input data is actually numerical, instead of one-hot encoded
         model.add(
             Embedding(input_dim=vocab_size,
                       input_length=novel_data.train_steps,
@@ -189,7 +191,7 @@ if __name__ == '__main__':
         # output shape = (batch_size, sequence_length, output_dim=32)
 
         # input shape = (batch_size, steps, input_dim=32) batch_size is handled by model.fit
-        # units: dimensionality of the output space.
+        # units: dimensionality of the output.
         # return_sequences: whether to return the last output in the output sequence, or the full sequence.
         model.add(LSTM(units=150,
                        return_sequences=True))

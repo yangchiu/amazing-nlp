@@ -1,9 +1,16 @@
 # for introduction to end-to-end memory networks, please see:
 # https://www.paperweekly.site/papers/notes/181
+
+# the original paper:
+# https://papers.nips.cc/paper/5846-end-to-end-memory-networks.pdf
 import pickle
 import numpy as np
 from keras.preprocessing.sequence import pad_sequences
 from keras.preprocessing.text import Tokenizer
+from keras.models import Sequential, Model
+from keras.layers.embeddings import Embedding
+from keras.layers import Input, Activation, Dense, LSTM, Permute, Dropout
+from keras.layers import add, dot, concatenate
 import os
 
 save_dir = 'memory_networks_yes_no_bot/'
@@ -12,6 +19,8 @@ if not os.path.exists(save_dir):
 
 train_filename = 'train_qa.bin'
 test_filename = 'test_qa.bin'
+
+model_filename = 'yes_no_bot_model.h5'
 
 
 class YesNoData():
@@ -115,3 +124,119 @@ class YesNoData():
 if __name__ == '__main__':
 
     yes_no_data = YesNoData(save_dir, train_filename, test_filename)
+
+    max_story_len = yes_no_data.max_story_len
+    max_question_len = yes_no_data.max_question_len
+    vocab_size = yes_no_data.vocab_size
+
+    # placeholders
+    stories = Input((max_story_len,))
+    questions = Input((max_question_len,))
+
+    # embedding A
+    stories_embedding_A = Sequential()
+
+    # input shape = (batch_size, max_story_len)
+    # although the input_dim = vocab_size,
+    # the input data is actually numerical, instead of one-hot encoded
+    stories_embedding_A.add(Embedding(input_dim=vocab_size,
+                                      input_length=max_story_len,
+                                      output_dim=64))
+    # output shape = (batch_size, max_story_len, output_dim=64)
+    stories_embedding_A.add(Dropout(0.3))
+
+    # embedding C
+    stories_embedding_C = Sequential()
+
+    # input shape = (batch_size, max_story_len)
+    #
+    # stories_embedding_C output_dim
+    # should be equal to max_question_len
+    # so it can be added to p later
+    stories_embedding_C.add(Embedding(input_dim=vocab_size,
+                                      input_length=max_story_len,
+                                      output_dim=max_question_len))
+    # output shape = (batch_size, max_story_len, output_dim=max_question_len)
+    stories_embedding_C.add(Dropout(0.3))
+
+    # embedding B
+    questions_embedding_B = Sequential()
+
+    # input shape = (batch_size, max_question_len)
+    #
+    # questions_embedding_B output_dim
+    # should be equal to
+    # stories_embedding_A output_dim
+    #
+    # so it can be dot-producted later
+    questions_embedding_B.add(Embedding(input_dim=vocab_size,
+                                        input_length=max_question_len,
+                                        output_dim=64))
+    # output shape = (batch_size, max_question_len, output_dim=64)
+    questions_embedding_B.add(Dropout(0.3))
+
+    # encoding using embeddings
+    m = stories_embedding_A(stories)
+    c = stories_embedding_C(stories)
+    u = questions_embedding_B(questions)
+
+    # inner product
+    # (batch_size, max_story_len, output_dim=64) dot (batch_size, max_question_len, output_dim=64)
+    # along axes [2, 2]
+    # = (batch_size, max_story_len, max_question_len)
+    #
+    # the meaning is: is mi important to uj ?
+    p_prime = dot([m, u], axes=[2, 2])
+    p = Activation('softmax')(p_prime)
+
+    # sum
+    # (batch_size, max_story_len, max_question_len) add (batch_size, max_story_len, max_question_len)
+    # = (batch_size, max_story_len, max_question_len)
+    o = add([p, c])
+    # reshape
+    # from (batch_size, max_story_len, max_question_len)
+    # to (batch_size, max_question_len, max_story_len)
+    o = Permute((2, 1))(o)
+
+    # concatenate
+    # (batch_size, max_question_len, max_story_len) concat (batch_size, max_question_len, output_dim=64)
+    # = (batch_size, max_question_len, max_story_len + output_dim)
+    answer = concatenate([o, u])
+
+    # input shape = (batch_size, max_question_len, max_story_len + output_dim)
+    # return_sequences default value is False
+    # so the steps dimension (max_question_len) is reduced
+    answer = LSTM(units=32)(answer)
+    # output shape = (batch_size, units)
+    print(answer)
+
+    answer = Dropout(0.5)(answer)
+
+    # input shape = (batch_size, 32)
+    answer = Dense(units=vocab_size)(answer)
+    # output shape = (batch_size, vocab_size)
+
+    # output a probability over the vocab
+    answer = Activation('softmax')(answer)
+
+    # build the final model
+    model = Model(inputs=[stories, questions], outputs=answer)
+
+    model.compile(optimizer='rmsprop',
+                  loss='categorical_crossentropy',
+                  metrics=['accuracy'])
+
+    stories_train = yes_no_data.stories_train
+    questions_train = yes_no_data.questions_train
+    answers_train = yes_no_data.answers_train
+    stories_test = yes_no_data.stories_test
+    questions_test = yes_no_data.questions_test
+    answers_test = yes_no_data.answers_test
+
+    model.fit(x=[stories_train, questions_train],
+              y=answers_train,
+              epochs=120,
+              validation_data=([stories_test, questions_test], answers_test)
+              )
+
+    model.save(os.path.join(save_dir, model_filename))
