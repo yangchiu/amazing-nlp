@@ -1,15 +1,14 @@
 import tensorflow as tf
 import numpy as np
 from sklearn.utils import shuffle
+from keras.preprocessing.sequence import pad_sequences
+import os
 
-from tensorflow.contrib.rnn import static_rnn as get_rnn_output
-from tensorflow.contrib.rnn import BasicRNNCell, GRUCell
+save_dir = 'ner_tf/'
+if not os.path.exists(save_dir):
+    os.makedirs(save_dir)
 
-training_data = './training_data/ner.txt'
-
-
-def init_weight(dim_i, dim_o):
-    return np.random.randn(dim_i, dim_o) / np.sqrt(dim_i + dim_o)
+training_data_filename = 'ner.txt'
 
 
 def get_data():
@@ -17,18 +16,24 @@ def get_data():
 
     word2idx = {}
     tag2idx = {}
+    # word_idx starts from 1, reserve idx 0 for pad_sequences
     word_idx = 1
+    # tag_idx starts from 1, reserve idx 0 for pad_sequences
     tag_idx = 1
 
-    Xtrain = []
-    Ytrain = []
+    x_train = []
+    y_train = []
 
-    currentX = []
-    currentY = []
+    current_x = []
+    current_y = []
 
-    for line in open(training_data):
-        # remove trailing spaces
+    for line in open(os.path.join(save_dir, training_data_filename)):
+
+        # The rstrip() method removes any trailing characters (characters at the end a string),
+        # space is the default trailing character to remove.
         line = line.rstrip()
+
+        # if it's not an empty line, there is a word-tag pair in this sentence
         if line:
             word, tag = line.split()
             word = word.lower()
@@ -36,37 +41,47 @@ def get_data():
             if word not in word2idx:
                 word2idx[word] = word_idx
                 word_idx += 1
-            # currentX collect word2idxs for this sentence
-            currentX.append(word2idx[word])
+            # current_x collect word2idx for this sentence
+            current_x.append(word2idx[word])
 
             # construct tag2idx for this dataset
             if tag not in tag2idx:
                 tag2idx[tag] = tag_idx
                 tag_idx += 1
-            # currentY collect tag2idxs for this sentence
-            currentY.append(tag2idx[tag])
+            # current_y collect tag2idx for this sentence
+            current_y.append(tag2idx[tag])
+        # if it's an empty line, it the end of a sentence
+        # append them to x_train, y_train
+        else:
+            x_train.append(current_x)
+            y_train.append(current_y)
+            current_x = []
+            current_y = []
 
-        Xtrain.append(currentX)
-        Ytrain.append(currentY)
-        currentX = []
-        currentY = []
-
-    print(f'=> number of samples: {len(Xtrain)}')
-    Xtrain, Ytrain = shuffle(Xtrain, Ytrain)
-    Ntest = int(0.3 * len(Xtrain))
-    Xtest = Xtrain[:Ntest]
-    Ytest = Ytrain[:Ntest]
-    Xtrain = Xtrain[Ntest:]
-    Ytrain = Ytrain[Ntest:]
+    print(f'=> number of samples: {len(x_train)}')
     print(f'=> number of classes: {len(tag2idx)}')
 
-    return Xtrain, Ytrain, Xtest, Ytest, word2idx, tag2idx
+    x_train, y_train = shuffle(x_train, y_train)
+    n_test = int(0.3 * len(x_train))
+    x_test = x_train[:n_test]
+    y_test = y_train[:n_test]
+    x_train = x_train[n_test:]
+    y_train = y_train[n_test:]
+
+    print(f'=> number of training data: {len(x_train)}')
+    print(f'=> number of test data: {len(x_test)}')
+
+    return x_train, y_train, x_test, y_test, word2idx, tag2idx
+
+
+def init_weights(input_dim, output_dim):
+    return np.random.randn(input_dim, output_dim) / np.sqrt(input_dim + output_dim)
 
 
 def train_model():
     print(f'* calling {train_model.__name__}')
 
-    Xtrain, Ytrain, Xtest, Ytest, word2idx, tag2idx = get_data()
+    x_train, y_train, x_test, y_test, word2idx, tag2idx = get_data()
 
     V = len(word2idx) + 2 # vocab size + unknown + pad
     K = len(tag2idx) + 1 # number of classes
