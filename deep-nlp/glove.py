@@ -2,7 +2,6 @@ import numpy as np
 import os
 import tensorflow as tf
 from sklearn.metrics.pairwise import pairwise_distances
-
 from brown_corpus import get_sentences_with_word2idx_limit_vocab
 
 save_dir = 'glove/'
@@ -11,7 +10,6 @@ if not os.path.exists(save_dir):
 
 cc_matrix_filename = 'cc_matrix.npy'
 model_filename = 'glove_model.npz'
-word2idx_filename = 'glove_word2idx.json'
 
 
 # global vectors for word representation
@@ -31,6 +29,11 @@ class Glove:
         # cc_matrix = co-occurrence matrix
         self.cc_matrix = None
 
+    # example:
+    # "I love dogs and cats"
+    # cc(I, love) += 1
+    # cc(I, dogs) += 1/2
+    # cc(I, and) += 1/3
     def build_cc_matrix(self, indexed_sents):
         print(f'* calling {Glove.build_cc_matrix.__name__}')
 
@@ -78,7 +81,7 @@ class Glove:
         self.cc_matrix = cc_matrix
         np.save(os.path.join(save_dir, cc_matrix_filename), cc_matrix)
 
-    def fit(self, indexed_sents, learning_rate=1e-4, reg=0.1, cc_matrix_threshold=100, alpha=0.75, epochs=200):
+    def fit(self, indexed_sents, learning_rate=1e-4, reg=0.1, cc_matrix_threshold=100, alpha=0.75, epochs=1000):
         print(f'* calling {Glove.fit.__name__}')
 
         if os.path.exists(os.path.join(save_dir, cc_matrix_filename)):
@@ -88,20 +91,26 @@ class Glove:
             print(f'=> build new cc matrix')
             self.build_cc_matrix(indexed_sents)
 
-        # weighted cc_matrix
         m = self.cc_matrix
+
+        # weights for least square error
         # np.zeros: shape should be int or tuple
-        weighted_cc = np.zeros((self.vocab_size, self.vocab_size))
-        weighted_cc[m < cc_matrix_threshold] = \
-            (m[m < cc_matrix_threshold] / cc_matrix_threshold) ** alpha
-        weighted_cc[m >= cc_matrix_threshold] = 1
+        weights = np.zeros((self.vocab_size, self.vocab_size))
+        weights[m < cc_matrix_threshold] = (m[m < cc_matrix_threshold] / cc_matrix_threshold) ** alpha
+        weights[m >= cc_matrix_threshold] = 1
 
         # target
+
+        # cc_matrix has long-tail distribution which means
+        # non-zero values will be very large
+        # so we take the log => log(cc_matrix) would be the target
+        #
+        # add 1 before taking the log to prevent NaN
         log_cc = np.log(m + 1)
 
         # variables
 
-        # for tf.Vatiable, directly provide "initial_value"
+        # for tf.Variable, directly provide "initial_value"
         # which can be a Tensor, or Python object convertible to a Tensor (numpy array)
         # no need to provide "shape"
         W = tf.Variable(
@@ -144,7 +153,7 @@ class Glove:
         # (1) a list of integers
         # (2) a tuple of integers
         # (3) or a 1-D Tensor of type int32.
-        tf_weighted_cc = tf.placeholder(
+        tf_weights = tf.placeholder(
             tf.float32,
             shape=(self.vocab_size, self.vocab_size)
         )
@@ -154,8 +163,23 @@ class Glove:
         )
 
         # loss
+
+        # expect W x U ~= log(cc_matrix)
+        # => delta = W x U - log(cc_matrix) ~= 0
+        # b, c, mu are just bias terms
         delta = tf.matmul(W, tf.transpose(U)) + b + c + mu - tf_log_cc
-        loss = tf.reduce_sum(tf_weighted_cc * delta * delta)
+        # for least square error: loss = tf.reduce_sum(delta * delta)
+        # but we use "weighted" least square error here
+        #
+        # some co-occurrences that happen rarely or never are noisy
+        # and carry less information than the more frequent ones.
+        # To deal with them, a weighted least squares regression model is used.
+        # https://medium.com/sciforce/word-vectors-in-natural-language-processing-global-vectors-glove-51339db89639
+        #
+        loss = tf.reduce_sum(tf_weights * delta * delta)
+
+        # regularization
+        # add |W|^2 and |U|^2 to the loss
         regularized_loss = loss
         for param in (W, U):
             regularized_loss += reg * tf.reduce_sum(param * param)
@@ -178,13 +202,16 @@ class Glove:
                     [loss, train],
                     feed_dict={
                         tf_log_cc: log_cc,
-                        tf_weighted_cc: weighted_cc
+                        tf_weights: weights
                     }
                 )
                 print(f'=> epoch {i}, loss = {c}')
 
             self.W, self.U = sess.run([W, U])
             # savez: save several arrays into a single file in uncompressed .npz format.
+            #
+            # Since it is not possible for Python to know the names of the arrays outside savez,
+            # the arrays will be saved with names “arr_0”, “arr_1”, and so on.
             np.savez(os.path.join(save_dir, model_filename), self.W, self.U)
 
 
@@ -255,4 +282,3 @@ if __name__ == '__main__':
         v = npz['arr_1']
 
     test_model(word2idx, w, v)
-
