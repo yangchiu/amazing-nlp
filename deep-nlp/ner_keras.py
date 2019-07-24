@@ -1,18 +1,18 @@
 import numpy as np
 from sklearn.utils import shuffle
-
+from keras.preprocessing.sequence import pad_sequences
 from keras.models import Model
 from keras.layers import Input, Dense, Embedding, LSTM, GRU
 from keras.preprocessing.sequence import pad_sequences
 from keras.preprocessing.text import Tokenizer
 from keras.optimizers import Adam
+import os
 
+save_dir = 'ner_keras/'
+if not os.path.exists(save_dir):
+    os.makedirs(save_dir)
 
-training_data = './training_data/ner.txt'
-
-
-def init_weight(dim_i, dim_o):
-    return np.random.randn(dim_i, dim_o) / np.sqrt(dim_i + dim_o)
+training_data_filename = 'ner.txt'
 
 
 def get_data():
@@ -67,6 +67,10 @@ def get_data():
     print(f'=> found {len(tag2idx)} unique tokens')
 
     return Xtrain, Ytrain, Xtest, Ytest, word2idx, tag2idx
+
+
+def init_weights(input_dim, output_dim):
+    return np.random.randn(input_dim, output_dim) / np.sqrt(input_dim + output_dim)
 
 
 def train_model():
@@ -130,4 +134,5 @@ def train_model():
 
 
 if __name__ == '__main__':
+
     train_model()
