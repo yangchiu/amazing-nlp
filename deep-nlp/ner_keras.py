@@ -1,10 +1,10 @@
 import numpy as np
 from sklearn.utils import shuffle
-from keras.preprocessing.sequence import pad_sequences
 from keras.models import Model
-from keras.layers import Input, Dense, Embedding, LSTM, GRU
+from keras.layers import Input, Dense, Embedding, GRU, Dropout
 from keras.preprocessing.sequence import pad_sequences
 from keras.preprocessing.text import Tokenizer
+from keras.utils import to_categorical
 from keras.optimizers import Adam
 import os
 
@@ -18,55 +18,82 @@ training_data_filename = 'ner.txt'
 def get_data():
     print(f'* calling {get_data.__name__}')
 
-    Xtrain = []
-    Ytrain = []
+    x_train = []
+    y_train = []
 
-    currentX = []
-    currentY = []
+    current_x = []
+    current_y = []
 
-    for line in open(training_data):
-        # remove trailing spaces
+    for line in open(os.path.join(save_dir, training_data_filename)):
+
+        # The rstrip() method removes any trailing characters (characters at the end a string),
+        # space is the default trailing character to remove.
         line = line.rstrip()
+
+        # if it's not an empty line, there is a word-tag pair in this sentence
         if line:
             word, tag = line.split()
             word = word.lower()
-            # currentX collect words for this sentence
-            currentX.append(word)
-            # currentY collect tags for this sentence
-            currentY.append(tag)
+            # current_x collect words in this sentence
+            current_x.append(word)
+            # current_y collect tags in this sentence
+            current_y.append(tag)
+        # if it's an empty line, it's the end of a sentence
+        # append them to x_train, y_train
+        else:
+            x_train.append(current_x)
+            y_train.append(current_y)
+            current_x = []
+            current_y = []
 
-        Xtrain.append(currentX)
-        Ytrain.append(currentY)
-        currentX = []
-        currentY = []
+    print(f'=> number of samples: {len(x_train)}')
 
-    print(f'=> number of samples: {len(Xtrain)}')
-    Xtrain, Ytrain = shuffle(Xtrain, Ytrain)
-    Ntest = int(0.3 * len(Xtrain))
-    Xtest = Xtrain[:Ntest]
-    Ytest = Ytrain[:Ntest]
-    Xtrain = Xtrain[Ntest:]
-    Ytrain = Ytrain[Ntest:]
+    x_train, y_train = shuffle(x_train, y_train)
+    n_test = int(0.3 * len(x_train))
+    x_test = x_train[:n_test]
+    y_test = y_train[:n_test]
+    x_train = x_train[n_test:]
+    y_train = y_train[n_test:]
+
+    print(f'=> number of training data: {len(x_train)}')
+    print(f'=> number of test data: {len(x_test)}')
 
     # construct word2idx using keras tokenizer
     tokenizer = Tokenizer()
-    tokenizer.fit_on_texts(Xtrain)
-    Xtrain = tokenizer.texts_to_sequences(Xtrain)
-    Xtest = tokenizer.texts_to_sequences(Xtest)
+    tokenizer.fit_on_texts(x_train)
+    x_train = tokenizer.texts_to_sequences(x_train)
+    x_test = tokenizer.texts_to_sequences(x_test)
 
     word2idx = tokenizer.word_index
-    print(f'=> found {len(word2idx)} unique tokens')
 
     # construct tag2idx using keras tokenizer
     tokenizer2 = Tokenizer()
-    tokenizer2.fit_on_texts(Ytrain)
-    Ytrain = tokenizer2.texts_to_sequences(Ytrain)
-    Ytest = tokenizer2.texts_to_sequences(Ytest)
+    tokenizer2.fit_on_texts(y_train)
+    y_train = tokenizer2.texts_to_sequences(y_train)
+    y_test = tokenizer2.texts_to_sequences(y_test)
 
     tag2idx = tokenizer2.word_index
-    print(f'=> found {len(tag2idx)} unique tokens')
+    print(f'=> number of classes: {len(tag2idx)}')
 
-    return Xtrain, Ytrain, Xtest, Ytest, word2idx, tag2idx
+    max_seq_len = max(len(x) for x in x_train + x_test)
+    print(f'=> max sentence length = {max_seq_len}')
+
+    # pad sequences
+    x_train = pad_sequences(x_train, maxlen=max_seq_len)
+    y_train = pad_sequences(y_train, maxlen=max_seq_len)
+    x_test = pad_sequences(x_test, maxlen=max_seq_len)
+    y_test = pad_sequences(y_test, maxlen=max_seq_len)
+
+    # one-hot encoding y
+    y_train = to_categorical(y_train)
+    y_test = to_categorical(y_test)
+
+    print(f'=> x_train shape: {x_train.shape}')
+    print(f'=> y_train shape: {y_train.shape}')
+    print(f'=> x_test shape: {x_test.shape}')
+    print(f'=> y_test shape: {y_test.shape}')
+
+    return x_train, y_train, x_test, y_test, word2idx, tag2idx, max_seq_len
 
 
 def init_weights(input_dim, output_dim):
@@ -76,61 +103,50 @@ def init_weights(input_dim, output_dim):
 def train_model():
     print(f'* calling {train_model.__name__}')
 
-    Xtrain, Ytrain, Xtest, Ytest, word2idx, tag2idx = get_data()
+    x_train, y_train, x_test, y_test, word2idx, tag2idx, max_seq_len = get_data()
 
-    vocab_size = len(word2idx) + 2 # vocab size + unknown + pad
-    num_tags = len(tag2idx) + 1 # number of tags
+    vocab_size = len(word2idx) + 1 # vocab size + pad
+    tag_size = len(tag2idx) + 1 # number of classes + pad
 
     # config
-    epochs = 5
-    learning_rate = 1e-2
-    batch_size = 32
-    hidden_layer_dim = 10
-    embedding_dim = 10
-    max_seq_len = max(len(x) for x in Xtrain + Xtest)
 
-    # pad sequences
-    Xtrain = pad_sequences(Xtrain, maxlen=max_seq_len)
-    Ytrain = pad_sequences(Ytrain, maxlen=max_seq_len)
-    Xtest = pad_sequences(Xtest, maxlen=max_seq_len)
-    Ytest = pad_sequences(Ytest, maxlen=max_seq_len)
-    print(f'=> Xtrain shape: {Xtrain.shape}')
-    print(f'=> Ytrain.shape: {Ytrain.shape}')
+    learning_rate = 0.01
+    num_hidden = 10
+    num_layers = 3
+    embedding_size = 64
 
-    # one-hot encoding targets
-    Ytrain_onehot = np.zeros((len(Ytrain), max_seq_len, num_tags), dtype='float32')
-    for n, sample in enumerate(Ytrain):
-        for t, tag in enumerate(sample):
-            Ytrain_onehot[n, t, tag] = 1
+    # model
 
-    Ytest_onehot = np.zeros((len(Ytest), max_seq_len, num_tags), dtype='float32')
-    for n, sample in enumerate(Ytest):
-        for t, tag in enumerate(sample):
-            Ytest_onehot[n, t, tag] = 1
+    inputs = Input(shape=(max_seq_len,))
 
-    # keras model
-    input = Input(shape=(max_seq_len,))
-    x = Embedding(vocab_size, embedding_dim)(input)
-    x = GRU(hidden_layer_dim, return_sequences=True)(x)
-    output = Dense(num_tags, activation='softmax')(x)
+    x = Embedding(input_dim=vocab_size,
+                  input_length=max_seq_len,
+                  output_dim=embedding_size)(inputs)
 
-    model = Model(input, output)
+    for i in range(num_layers):
+        x = GRU(units=num_hidden, return_sequences=True)(x)
+        x = Dropout(0.5)(x)
+
+    outputs = Dense(units=tag_size, activation='softmax')(x)
+
+    model = Model(inputs=inputs, outputs=outputs)
+
+    # loss, optimizer, metrics
+
     model.compile(
+        # targets are one-hot encoded, use categorical_crossentropy.
         loss='categorical_crossentropy',
         optimizer=Adam(lr=learning_rate),
         metrics=['accuracy']
     )
 
-    r = model.fit(
-        Xtrain,
-        Ytrain_onehot,
-        batch_size=batch_size,
-        epochs=epochs,
-        validation_data=(Xtest, Ytest_onehot)
+    # batch_size isn't specified, default value = 32
+    model.fit(
+        x=x_train,
+        y=y_train,
+        epochs=8,
+        validation_data=(x_test, y_test)
     )
-
-    print(r.history['loss'])
-    print(r.history['acc'])
 
 
 if __name__ == '__main__':

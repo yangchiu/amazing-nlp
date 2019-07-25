@@ -50,7 +50,7 @@ def get_data():
                 tag_idx += 1
             # current_y collect tag2idx for this sentence
             current_y.append(tag2idx[tag])
-        # if it's an empty line, it the end of a sentence
+        # if it's an empty line, it's the end of a sentence
         # append them to x_train, y_train
         else:
             x_train.append(current_x)
