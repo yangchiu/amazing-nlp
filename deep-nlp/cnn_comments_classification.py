@@ -143,6 +143,7 @@ class ToxicComments:
 
         print(f'=> get word embedding with shape = {self.embedding.shape}')
 
+
 class MultiReplacer:
     dict = {
         # &nbsp
@@ -182,14 +183,14 @@ if __name__ == '__main__':
 
     # model
 
-    # input shape = (120, 1)
+    # input shape = (seq_len=120, 1)
     x = Embedding(input_dim=toxic.vocab_size + 1,
                   input_length=toxic.max_comment_length,
                   output_dim=glove.embedding_size,
                   # load pretrained word embeddings into the Embedding layer
                   weights=[toxic.embedding],
                   trainable=False)(inputs)
-    # output shape = (120, 100)
+    # output shape = (120, output_dim=100)
 
     #
     # use CNN on time sequence data here
@@ -290,5 +291,5 @@ if __name__ == '__main__':
               y=toxic.targets,
               # if batch_size unspecified, will default to 32.
               batch_size=128,
-              epochs=3,
+              epochs=10,
               validation_split=0.3)
