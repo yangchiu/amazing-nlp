@@ -64,6 +64,6 @@
 > prove that not only RNN, CNN can be used on time-series data and perform text classification, too
 10. [simple_memory_network_yes_no_bot.py](https://github.com/yangchiu/amazing-nlp/blob/master/deep-nlp/simple_memory_network_yes_no_bot.py)
 > apply a simple memory network to bAbI dataset, build a model can give a yes/no answer based on the given story and question
-11. [dual_lstm_mnist.py]()
+11. [dual_lstm_mnist.py](https://github.com/yangchiu/amazing-nlp/blob/master/deep-nlp/dual_lstm_mnist.py)
 > prove that not only CNN, RNN can be used on image data and perform digit recognition, too
      
