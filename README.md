@@ -32,6 +32,8 @@
 > apply fully-connected network to iris classification with categorical cross entropy
 3. [bilstm_investigation.py](https://github.com/yangchiu/amazing-nlp/blob/master/keras-basics/bilstm_investigation.py)
 > investigate the relations between output, hidden states, cell states of LSTM and BiLSTM and their shapes
+4. [gru_investigation.py](https://github.com/yangchiu/amazing-nlp/blob/master/keras-basics/gru_investigation.py)
+> investigate the relations between output and hidden states of GRU and BiGRU and their shapes
      
 #### [C] nlp-basics
 1. [pretrained_word2vec.py](https://github.com/yangchiu/amazing-nlp/blob/master/nlp-basics/pretrained_word2vec.py)
@@ -62,4 +64,6 @@
 > prove that not only RNN, CNN can be used on time-series data and perform text classification, too
 10. [simple_memory_network_yes_no_bot.py](https://github.com/yangchiu/amazing-nlp/blob/master/deep-nlp/simple_memory_network_yes_no_bot.py)
 > apply a simple memory network to bAbI dataset, build a model can give a yes/no answer based on the given story and question
+11. [dual_lstm_mnist.py]()
+> prove that not only CNN, RNN can be used on image data and perform digit recognition, too
      
