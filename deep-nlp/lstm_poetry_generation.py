@@ -2,6 +2,9 @@ import os
 import numpy as np
 from keras.preprocessing.text import Tokenizer
 from keras.preprocessing.sequence import pad_sequences
+from keras.utils import to_categorical
+from keras.layers import Input, Embedding, LSTM, Dense
+from keras.models import Model
 
 # GloVe: https://nlp.stanford.edu/projects/glove/
 # direct download link: http://nlp.stanford.edu/data/glove.6B.zip
@@ -119,13 +122,23 @@ class RobertFrostCorpus:
         print(f'=> input sequences shape = {self.input_sequences.shape}')
         print(f'=> target sequences shape = {self.target_sequences.shape}')
 
+        # one-hot targets
+
+        # keras sparse categorical cross entropy loss won't work when each target is a sequence.
+        # it only works when you only have one target per input.
+        #
+        # now each sample gives us an entire sequence of targets,
+        # but keras sparse categorical cross entropy just wasn't written for that case.
+        self.target_sequences = to_categorical(self.target_sequences, num_classes=self.vocab_size + 1)
+        print(f'=> after one-hot encoded, target sequences shape = {self.target_sequences.shape}')
+
     def build_word_embedding(self):
         print(f'* calling {RobertFrostCorpus.build_word_embedding.__name__}')
 
         # using pretrained word embedding to build
         # word embedding for words in robert frost corpus
 
-        # becuase keras tokenizer reserve index 0 for <pad>
+        # because keras tokenizer reserve index 0 for <pad>
         num_words = self.vocab_size + 1
 
         self.embedding = np.zeros((num_words, self.pretrained.embedding_size))
@@ -140,26 +153,131 @@ class RobertFrostCorpus:
                     self.embedding[i] = self.pretrained.embedding[index]
         print(f'=> get word embedding with shape = {self.embedding.shape}')
 
-        # one-hot target
-        # because sparse categorical cross entropy
-        # only works for one input -> one target
-        # but now we have one input -> T targets
-        # ==> do this.
-        #
-        # Well unfortunately if you pass in the sparse categorical cross entropy loss function into Cara's it
-        #
-        # won't work when each target is a sequence.
-        #
-        # This was OK in our eminent example because in essence you only have one target per input.
-        #
-        # But now we have two targets per input or in other words.
-        #
-        # Each sample gives us an entire sequence of targets so sparse categorical cross entropy just wasn't written
-        #
-        # for that case.
-
 
 if __name__ == '__main__':
 
     glove = Glove(glove_filepath)
     corpus = RobertFrostCorpus(glove)
+
+    # inputs
+
+    inputs = Input(shape=(corpus.max_seq_len,))
+
+    # layers
+
+    embedding_layer = Embedding(input_dim=corpus.vocab_size + 1,
+                                # no need to feed input_length here,
+                                # because we'll adjust it from max_seq_len to 1 later
+                                output_dim=glove.embedding_size,
+                                weights=[corpus.embedding],
+                                trainable=False)
+
+    lstm_layer = LSTM(units=25,
+                      return_sequences=True,
+                      return_state=False)
+
+    dense_layer = Dense(units=corpus.vocab_size + 1,
+                        activation='softmax')
+
+    # model
+
+    x = embedding_layer(inputs)
+
+    # input shape = (, steps=12, embedding_size=100)
+    x = lstm_layer(x)
+    # output shape = (, steps=12, units=25)
+
+    # input shape = (, 12, 25)
+    outputs = dense_layer(x)
+    # output shape = (, 12, units=50001)
+
+    #
+    # this model is only for training!
+    #
+    # it inputs sequences [0 ~ T]
+    # and outputs (predicts) sequences [1 ~ T + 1]
+    #
+    # the input length is fixed to T
+    # but when we want to use this model to generate new text
+    # we don't want to input sequence with length T
+    # we just want to input one single word!
+    #
+    # => have to build a new model with input length 1 later
+    #
+
+    model = Model(inputs=inputs,
+                  outputs=outputs)
+
+    model.compile(loss='categorical_crossentropy',
+                  optimizer='rmsprop',
+                  metrics=['accuracy'])
+
+    model.fit(x=corpus.input_sequences,
+              y=corpus.target_sequences,
+              batch_size=128,
+              epochs=100,
+              validation_split=0.3)
+
+    # make a new model for sampling
+
+    # we'll only input one word at a time
+    inputs2 = Input(shape=(1,))
+
+    x = embedding_layer(inputs2)
+
+    x = lstm_layer(x)
+
+    outputs2 = dense_layer(x)
+
+    sampling_model = Model(inputs=inputs2,
+                           outputs=outputs2)
+
+    word2idx = corpus.tokenizer.word_index
+    idx2word = {v: k for k, v in word2idx.items()}
+
+    def sample_line():
+
+        # the first word to be fed into sampling model
+        # its shape should be (batch_size, steps, )
+        initial_input = np.array([[word2idx['<sos>']]])
+
+        # if sampling model return this symbol, stop sampling
+        eos_index = word2idx['<eos>']
+
+        output_sentence = []
+        for _ in range(corpus.max_seq_len):
+
+            o = sampling_model.predict(initial_input)
+
+            # o shape = (batch_size, steps, vocab_size)
+            #         = (1, 1, vocab_size)
+            probs = o[0, 0]
+
+            if np.argmax(probs) == 0:
+                print('<pad>')
+
+            probs[0] = 0
+            probs /= probs.sum()
+
+            idx = np.random.choice(len(probs), p=probs)
+            if idx == eos_index:
+                break
+
+            output_sentence.append(idx2word.get(idx, '<pad>'))
+
+            initial_input[0, 0] = idx
+
+        return ' '.join(output_sentence)
+
+    while True:
+        for i in range(4):
+            print(sample_line())
+
+        ans = input("---generate another? [Y/n]---")
+        if ans and ans[0].lower().startswith('n'):
+            break
+
+
+
+
+
