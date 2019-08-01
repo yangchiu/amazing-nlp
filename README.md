@@ -57,7 +57,8 @@
 6. [ner_keras.py](https://github.com/yangchiu/amazing-nlp/blob/master/deep-nlp/ner_keras.py)
 > perform name-entity recognition using Keras
 7. [lstm_text_generation.py](https://github.com/yangchiu/amazing-nlp/blob/master/deep-nlp/lstm_text_generation.py)
-> train a language model based on Moby Dick, and generate new text sequences using this model
+> train a language model based on Moby Dick, and generate new text sequences using this model<br>
+> the input length of the model is fixed, so when we do the sampling, we need 0 ~ T inputs to generate T + 1 output 
 8. [lstm_comments_classification.py](https://github.com/yangchiu/amazing-nlp/blob/master/deep-nlp/lstm_comments_classification.py)
 > use LSTM and pre-trained Glove to perform text classification
 9. [cnn_comments_classification.py](https://github.com/yangchiu/amazing-nlp/blob/master/deep-nlp/cnn_comments_classification.py)
@@ -66,4 +67,7 @@
 > apply a simple memory network to bAbI dataset, build a model can give a yes/no answer based on the given story and question
 11. [dual_lstm_mnist.py](https://github.com/yangchiu/amazing-nlp/blob/master/deep-nlp/dual_lstm_mnist.py)
 > prove that not only CNN, RNN can be used on image data and perform digit recognition, too
-     
+12. [lstm_poetry_generation.py](https://github.com/yangchiu/amazing-nlp/blob/master/deep-nlp/lstm_poetry_generation.py)
+> train a language model based on Robert Frost poetry, and generate new peotry sequences using this model<br>
+> we create a model with input length 1 besides the trained model (which has input length T)<br>
+> so when we do the sampling, we only need T input to generate T + 1 output 
