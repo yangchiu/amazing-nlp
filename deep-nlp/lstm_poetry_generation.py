@@ -5,10 +5,11 @@ from keras.preprocessing.sequence import pad_sequences
 from keras.utils import to_categorical
 from keras.layers import Input, Embedding, LSTM, Dense
 from keras.models import Model
+from keras.optimizers import Adam
 
 # GloVe: https://nlp.stanford.edu/projects/glove/
 # direct download link: http://nlp.stanford.edu/data/glove.6B.zip
-glove_filepath = '../pretrained-word-embeddings/glove.6B/glove.6B.100d.txt'
+glove_filepath = '../pretrained-word-embeddings/glove.6B/glove.6B.50d.txt'
 
 save_dir = 'lstm_poetry_generation/'
 if not os.path.exists(save_dir):
@@ -56,7 +57,13 @@ class RobertFrostCorpus:
         self.get_corpus()
 
         self.tokenizer = None
-        self.vocab_size = 50000
+        #
+        # vocab_size would dominate whether we can train the model successfully
+        # if vocab_size is too large, training process could stuck in high loss / low accuracy
+        # or
+        # it just causes training time increasing dramatically?
+        #
+        self.vocab_size = 3000
         self.max_seq_len = 0
         self.input_sequences = None
         self.target_sequences = None
@@ -169,8 +176,8 @@ if __name__ == '__main__':
                                 # no need to feed input_length here,
                                 # because we'll adjust it from max_seq_len to 1 later
                                 output_dim=glove.embedding_size,
-                                weights=[corpus.embedding],
-                                trainable=False)
+                                weights=[corpus.embedding])
+                                # seems trainable = False would cause slower loss minimization in this case
 
     lstm_layer = LSTM(units=25,
                       return_sequences=True,
@@ -209,13 +216,13 @@ if __name__ == '__main__':
                   outputs=outputs)
 
     model.compile(loss='categorical_crossentropy',
-                  optimizer='rmsprop',
+                  optimizer=Adam(lr=0.01),
                   metrics=['accuracy'])
 
     model.fit(x=corpus.input_sequences,
               y=corpus.target_sequences,
               batch_size=128,
-              epochs=100,
+              epochs=200,
               validation_split=0.3)
 
     # make a new model for sampling
