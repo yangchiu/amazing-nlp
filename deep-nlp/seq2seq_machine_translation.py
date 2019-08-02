@@ -198,13 +198,45 @@ if __name__ == '__main__':
     glove = Glove(glove_filepath)
     eng2spa = Eng2SpaData(glove)
 
+    hidden_dim = 256
+    batch_size = 64
+    epochs = 100
+
     # encoder
 
     encoder_inputs_placeholder = Input(shape=(eng2spa.encoder_max_seq_len, ))
 
-    x = Embedding(input_dim=eng2spa.encoder_vocab_size,
-                  input_length=eng2spa.encoder_max_seq_len,
-                  output_dim=glove.embedding_size,
-                  weights=[eng2spa.embedding])(encoder_inputs_placeholder)
+    encoder_x = Embedding(input_dim=eng2spa.encoder_vocab_size,
+                          input_length=eng2spa.encoder_max_seq_len,
+                          output_dim=glove.embedding_size,
+                          weights=[eng2spa.embedding])(encoder_inputs_placeholder)
 
-   # x =
+    encoder_o, encoder_h, encoder_c = LSTM(units=hidden_dim,
+                                           # hidden state would be fed into decoder
+                                           # so we have to set return_state = True
+                                           return_state=True)(encoder_x)
+
+    # keep states, and pass them into decoder
+    encoder_states = [encoder_h, encoder_c]
+
+    # decoder
+
+    decoder_inputs_placeholder = Input(shape=(eng2spa.decoder_max_seq_len, ))
+
+    _decoder_embedding_layer = Embedding(input_dim=eng2spa.decoder_vocab_size,
+                                         # don't have to set input_length here
+                                         # because input_length would be changed
+                                         # from max_seq_len to 1
+                                         # when we create the sampling model
+                                         output_dim=hidden_dim
+                                         )
+
+    decoder_x = _decoder_embedding_layer(decoder_inputs_placeholder)
+
+    # since decoder is many-to-many model,
+    # we have to set return_sequences = True
+    _decoder_lstm = LSTM(units=hidden_dim,
+                         return_sequences=True)
+
+    decoder_output = _decoder_lstm(decoder_inputs_placeholder,
+                                   initial_state=)
